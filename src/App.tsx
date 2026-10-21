@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 import DadiTable from './games/dadi/DadiTable'
+import MachiavelliTable from './games/machiavelli/MachiavelliTable'
 import denari7 from './assets/cards/napoletane/denari-07.jpg'
 import bastoni3 from './assets/cards/napoletane/bastoni-03.jpg'
 import coppe1 from './assets/cards/napoletane/coppe-01.jpg'
@@ -222,11 +223,12 @@ function App() {
     const next = [game.id, ...recentIds.filter((id) => id !== game.id)]
     localStorage.setItem('recent-games', JSON.stringify(next))
     setRecentIds(next)
-    // per ora si apre solo il tavolo dei dadi; gli altri giochi non hanno ancora una schermata
-    if (game.id === 'dadi') setOpenGame('dadi')
+    // per ora si aprono solo i tavoli di dadi e Machiavelli; gli altri giochi non hanno ancora una schermata
+    if (game.id === 'dadi' || game.id === 'machiavelli') setOpenGame(game.id)
   }
 
   if (openGame === 'dadi') return <main><DadiTable onBack={() => setOpenGame(null)} /></main>
+  if (openGame === 'machiavelli') return <main><MachiavelliTable onBack={() => setOpenGame(null)} /></main>
 
   return <main><Picker concept={concept} onChange={setConcept} />{concept === 1 && <Product recentGames={recentGames} onPlay={play} />}{concept === 2 && <Night />}{concept === 3 && <Library />}</main>
 }

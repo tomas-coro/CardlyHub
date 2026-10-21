@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  viewer-template.html · scocca del visualizzatore di direzioni (skill `mockup`)
+  ─────────────────────────────────────────────────────────────────────────────
+  SCOCCA FISSA, CONTENUTO VARIABILE.
+  La skill sostituisce SOLO il contenuto di <div id="panels"> con i 3/4 pannelli
+  reali. Ogni direzione è un <section class="dir-panel" data-name data-mood data-why>
+  che contiene SOLO il design di anteprima: la barra-titolo (nome+mood) e la riga
+  "perché" sono disegnate automaticamente dallo script qui sotto.
+  I chip in #chips sono generati automaticamente, uno per pannello.
+  NON modificare la scocca o lo script: cambia solo #panels (e <title>).
+-->
+<title>Punteggio Yahtzee · direzioni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Hanken+Grotesk:wght@400;500;600;700&family=Young+Serif&family=Libre+Franklin:wght@400;500;600;700&family=Sora:wght@400;600;700&family=Hedvig+Letters+Serif&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14171e; --ink-2:#1b1f28; --ink-3:#232936;
+    --line:#323a4a; --bone:#e9e4d8; --bone-dim:#a39e93;
+    --brass:#e0a96d; --brass-deep:#b9824a; --ok:#7fb59a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #1d2230 0, transparent 60%), var(--ink);
+    color:var(--bone); font-family:"Hanken Grotesk",sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 18px 64px}
+
+  header.top{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}
+  .eyebrow{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--brass);font-weight:700}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(1.4rem,4vw,2rem);margin:.35rem 0 0;letter-spacing:-.015em}
+  .lead{color:var(--bone-dim);font-size:.9rem;margin:.45rem 0 0;max-width:52ch}
+
+  /* chip bar */
+  #chips{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
+  #chips button{
+    font:inherit;font-weight:600;font-size:.84rem;color:var(--bone-dim);
+    background:var(--ink-2);border:1px solid var(--line);border-radius:11px;
+    padding:10px 15px;min-height:44px;cursor:pointer;display:flex;align-items:center;gap:8px;
+    transition:color .15s ease, background .15s ease, border-color .15s ease;
+  }
+  #chips button:hover{color:var(--bone)}
+  #chips button[aria-pressed="true"]{border-color:var(--brass);color:var(--bone);background:var(--ink-3)}
+  #chips button .swatch{width:11px;height:11px;border-radius:4px;background:var(--brass);flex:none}
+
+  /* palco */
+  #stage{position:relative}
+  .dir-panel[hidden]{display:none}
+  .dir-panel{animation:fade .28s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .dir-card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  .dir-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .dir-name{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1.1rem;line-height:1.15}
+  .dir-mood{font-size:.74rem;color:var(--bone-dim);margin-top:2px}
+  .dir-tag{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;padding:5px 9px;border-radius:99px;white-space:nowrap;background:var(--ink-3);color:var(--bone-dim);border:1px solid var(--line)}
+  .dir-tag[data-role="Attuale"]{background:rgba(224,169,109,.16);color:var(--brass);border-color:var(--brass-deep)}
+  .dir-tag[data-role="Variante +"]{background:rgba(127,181,154,.14);color:var(--ok);border-color:#3f5a4f}
+  .dir-body{padding:20px 18px}
+  .dir-why{display:flex;gap:9px;align-items:flex-start;padding:13px 18px;border-top:1px solid var(--line);background:rgba(255,255,255,.015);font-size:.82rem;color:var(--bone-dim)}
+  .dir-why b{color:var(--bone);font-weight:600}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+
+  /* ───────── stili di esempio dei pannelli (la skill li sostituisce) ───────── */
+  .demo-nav{display:flex;gap:8px;align-items:center;font-size:.7rem;color:var(--bone-dim);margin-bottom:14px}
+  .demo-dot{width:8px;height:8px;border-radius:99px;background:var(--line)}
+  .demo-h{margin:0 0 8px;line-height:1.05}
+  .demo-p{margin:0 0 16px;font-size:.86rem;color:var(--bone-dim)}
+  .demo-btn{font:inherit;font-weight:700;font-size:.82rem;border:0;border-radius:9px;padding:11px 16px;min-height:44px;cursor:pointer;transition:transform .12s ease, filter .12s ease}
+  .demo-btn:hover{transform:translateY(-2px);filter:brightness(1.07)}
+  .t-edit .demo-h{font-family:"Bodoni Moda",serif;font-weight:500;font-size:1.7rem;color:#f1ece1}
+  .t-edit .demo-btn{background:#e9e4d8;color:#181818}
+  .t-retro{background:linear-gradient(180deg,#241a12,#1b1f28);margin:-20px -18px;padding:20px 18px;border-radius:0}
+  .t-retro .demo-h{font-family:"Bodoni Moda",serif;font-style:italic;font-weight:500;font-size:1.7rem;color:#f0c98a}
+  .t-retro .demo-btn{background:#d98b3f;color:#1a1206}
+  .t-tech .demo-h{font-family:"Hanken Grotesk";font-weight:700;letter-spacing:-.02em;font-size:1.6rem;color:#dfe7f2}
+  .t-tech .demo-btn{background:#5b7fb0;color:#0c1118}
+
+  /* ───────── mockup punteggio Yahtzee: parti comuni ───────── */
+  .dir-card{overflow:clip} /* come hidden per gli angoli, ma non blocca lo sticky della barra di conferma */
+  .split{display:grid;gap:22px;align-items:start}
+  @media (min-width:760px){.split{grid-template-columns:minmax(0,390px) minmax(0,1fr)}}
+  .phone{width:100%;max-width:390px;margin:0 auto;border:8px solid #0b0d12;border-radius:30px;overflow:clip;background:#06301d}
+  .felt{padding:14px 12px 22px;text-align:center;color:#f2e9d3;
+    background:radial-gradient(120% 95% at 50% 40%,#1f8254 0%,#0f5c3a 48%,#06301d 100%)}
+  .felt .st{font:800 .72rem "Hanken Grotesk",sans-serif;letter-spacing:.09em;text-transform:uppercase;margin:0 0 12px;min-height:1.2em}
+  .felt .dice{display:flex;gap:8px;justify-content:center}
+  .felt .dice.wait{opacity:.45}
+  .die{width:46px;height:46px;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:8px;border-radius:12px;flex:none;
+    background:radial-gradient(130% 130% at 28% 22%,#ff6a58 0%,#d62a1e 52%,#8c0f0a 100%);
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22),0 3px 0 rgba(0,0,0,.35)}
+  .die i{place-self:center;width:78%;height:78%;border-radius:50%;visibility:hidden;background:radial-gradient(circle at 36% 30%,#fffaf0,#eadcb8)}
+  .die i.on{visibility:visible}
+  .die.mini{width:24px;height:24px;padding:3px;border-radius:7px;box-shadow:none}
+
+  .sheet{position:relative;margin-top:-10px;border-radius:18px 18px 0 0}
+  .bar{position:sticky;bottom:0;padding:10px 12px;background:var(--bar-bg);border-top:2px solid var(--bar-line);z-index:3}
+  .bar-msg{margin:0;min-height:48px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.82rem;opacity:.9}
+  .bar-btn{width:100%;min-height:48px;border:0;border-radius:10px;cursor:pointer;font-weight:700;font-size:.98rem;font-family:inherit;
+    background:var(--btn-bg);color:var(--btn-fg);transition:transform .12s ease,filter .12s ease}
+  .bar-btn:hover{filter:brightness(1.06)}
+  .bar-btn:active{transform:translateY(2px)}
+  .bar-btn.zero{background:var(--zero-bg);color:var(--zero-fg)}
+  .bar-btn:focus-visible,.sheet button:focus-visible,.ctl button:focus-visible{outline:3px solid currentColor;outline-offset:2px}
+  .end{display:grid;gap:8px;text-align:center}
+  .end b{font-size:1.05rem}
+  .end span{font-size:.84rem}
+
+  .side h4{margin:0 0 8px;font-family:"Bricolage Grotesque",sans-serif;font-size:1rem}
+  .side ul{margin:0 0 16px;padding-left:18px;color:var(--bone-dim);font-size:.84rem}
+  .side li{margin-bottom:6px}
+  .side li b{color:var(--bone)}
+  .side ol.steps{margin:0 0 16px;padding-left:20px;color:var(--bone-dim);font-size:.84rem}
+  .side ol.steps li{margin-bottom:8px}
+  .side ol.steps li b{color:var(--bone)}
+  .ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:14px;border-top:1px solid var(--line)}
+  .ctl button{font:600 .82rem "Hanken Grotesk",sans-serif;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--ink-3);color:var(--bone);cursor:pointer}
+  .ctl button:hover{border-color:var(--brass)}
+  .ctl small{flex-basis:100%;color:var(--bone-dim);font-size:.74rem}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 16px;font-size:.78rem;color:var(--bone-dim)}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:var(--c);vertical-align:-1px}
+
+  /* ───────── A · Blocchetto di carta ───────── */
+  .vA{background:#f4ecd6;color:#1f3b78;font-family:"Libre Franklin",sans-serif;
+    --bar-bg:#f4ecd6;--bar-line:#1f3b78;--btn-bg:#1f3b78;--btn-fg:#f4ecd6;--zero-bg:#b3261e;--zero-fg:#fff}
+  .vA .hdA,.vA .rA{display:grid;grid-template-columns:1fr 62px 62px;align-items:center;width:100%}
+  .vA .hdA{position:sticky;top:0;z-index:2;background:#f4ecd6;border-bottom:2px solid #1f3b78;padding:0 12px;min-height:44px;font:400 1rem "Young Serif",serif}
+  .vA .hdA span+span,.vA .rA .c{text-align:center}
+  .vA .hdA .me{border-bottom:3px solid #1f3b78}
+  .vA .rA{min-height:46px;padding:0 12px;border:0;border-bottom:1px solid #d9cdb0;background:transparent;color:inherit;font:inherit;text-align:left}
+  .vA .rA .nm{font-weight:600;font-size:.92rem;line-height:1.15}
+  .vA .rA .nm small{display:block;font-weight:400;font-size:.66rem;color:#6b6350}
+  .vA .rA .c{display:grid;place-items:center;min-height:46px;border-left:1px solid #d9cdb0}
+  .vA button.rA{cursor:pointer}
+  .vA button.rA:hover{background:#efe4c2}
+  .vA button.rA[aria-pressed="true"]{background:#fbe9a0;box-shadow:inset 4px 0 0 #1f3b78}
+  .vA .pot{font:italic 600 1.02rem "Libre Franklin";color:#4a64a8;border-bottom:2px dashed #4a64a8;line-height:1.1}
+  .vA .val{font:400 1.12rem "Young Serif",serif}
+  .vA .val.zero{color:#b3261e}
+  .vA .sub{background:#ebe1c4;font-size:.8rem}
+  .vA .sub .nm{font-weight:700}
+  .vA .tot{border-top:2px solid #1f3b78;border-bottom:0;min-height:54px}
+  .vA .tot .nm{font:400 1.1rem "Young Serif",serif}
+
+  /* ───────── B · Plancia ottone ───────── */
+  .vB{background:#1c1510;color:#f2e9d3;font-family:"Hanken Grotesk",sans-serif;
+    --bar-bg:#241b13;--bar-line:#c9a227;--btn-bg:#d9ae2f;--btn-fg:#1d1209;--zero-bg:#8c2a20;--zero-fg:#fff}
+  .vB .tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px}
+  .vB .tabs button{min-height:60px;border-radius:12px;border:1.5px solid #4a3a28;background:#241b13;color:#d4c7a8;font:inherit;cursor:pointer;display:grid;gap:2px;text-align:left;padding:8px 14px}
+  .vB .tabs button small{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+  .vB .tabs button b{font:700 1.45rem/1 "Bricolage Grotesque",sans-serif}
+  .vB .tabs button[aria-pressed="true"]{border-color:#f5d36b;color:#f5d36b;background:#2c2217}
+  .vB .rB{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:50px;padding:6px 14px;border:0;border-top:1px solid #33271b;background:transparent;color:inherit;font:inherit;text-align:left}
+  .vB .rB .nm{font:700 .98rem "Bricolage Grotesque",sans-serif;line-height:1.15}
+  .vB .rB .nm small{display:block;font:400 .68rem "Hanken Grotesk";color:#b9ab8e;margin-top:1px}
+  .vB button.rB{cursor:pointer}
+  .vB button.rB:hover{background:#241b13}
+  .vB button.rB[aria-pressed="true"]{background:#2c2217;box-shadow:inset 4px 0 0 #f5d36b}
+  .vB .pill{min-width:48px;text-align:center;padding:6px 10px;border-radius:8px;border:1.5px solid #c9a227;color:#f5d36b;font:700 1rem "Bricolage Grotesque"}
+  .vB button.rB[aria-pressed="true"] .pill{background:#f5d36b;color:#1d1209}
+  .vB .valB{font:700 1.15rem "Bricolage Grotesque";min-width:48px;text-align:center}
+  .vB .valB.zero{color:#e8998e}
+  .vB .free{color:#8f8168;font-size:.8rem}
+  .vB .prog{padding:10px 14px 12px;background:#17110c;border-top:1px solid #33271b}
+  .vB .prog .track{height:8px;border-radius:4px;background:#33271b;overflow:hidden}
+  .vB .prog .track i{display:block;height:100%;background:#7fb59a}
+  .vB .prog p{margin:7px 0 0;font-size:.76rem;color:#d4c7a8}
+  .vB .prog p b{color:#9fd3b9}
+  .vB .totB{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-top:2px solid #c9a227;font:700 1.1rem "Bricolage Grotesque"}
+
+  /* ───────── C · Tessere ───────── */
+  .vC{background:#101114;color:#f4f4f2;font-family:"Sora",sans-serif;
+    --bar-bg:#101114;--bar-line:#2b2d33;--btn-bg:#f2b705;--btn-fg:#101114;--zero-bg:#d6372b;--zero-fg:#fff}
+  .vC .chipsC{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 12px 8px}
+  .vC .chipsC button{min-height:52px;border-radius:12px;border:2px solid #2b2d33;background:#1d1f25;color:#c8cbd2;font:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:0 12px}
+  .vC .chipsC button span{font-size:.72rem;font-weight:600}
+  .vC .chipsC button b{font:400 1.5rem "Hedvig Letters Serif",serif;color:#f4f4f2}
+  .vC .chipsC button[aria-pressed="true"]{border-color:#f4f4f2;color:#f4f4f2}
+  .vC .key{display:flex;flex-wrap:wrap;gap:4px 12px;padding:0 14px 8px;font-size:.66rem;color:#aab0bb}
+  .vC .key span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:var(--c)}
+  .vC .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
+  .vC .tile{position:relative;min-height:80px;border-radius:12px;border:2px solid transparent;background:#17181c;color:#f4f4f2;text-align:left;padding:10px 10px 8px 16px;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:space-between;font:inherit;transition:transform .12s ease,background .12s ease}
+  .vC .tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--gc)}
+  .vC .g-up{--gc:#2f7be0}.vC .g-same{--gc:#d6372b}.vC .g-fig{--gc:#1f9d55}.vC .g-ch{--gc:#f2b705}
+  .vC .tile .tn{font-size:.76rem;font-weight:700;line-height:1.15}
+  .vC .tile .tn small{display:block;font-weight:400;font-size:.62rem;color:#aab0bb;margin-top:2px}
+  .vC .tile .tv{font:400 1.7rem/1 "Hedvig Letters Serif",serif;color:#8d93a0}
+  .vC .tile .tv.zero{color:#ff8a7e}
+  .vC .tile.pick{background:#262932;cursor:pointer}
+  .vC .tile.pick .tv{color:#fff}
+  .vC .tile.pick:hover{background:#2e3140}
+  .vC .tile.pick[aria-pressed="true"]{border-color:var(--gc);transform:translateY(-2px);background:#2e3140}
+  .vC .tile .die{position:absolute;right:8px;top:8px}
+  .vC .tile.g-ch{grid-column:1/-1;min-height:64px}
+  .vC .tile.wide{grid-column:1/-1;min-height:0;flex-direction:row;align-items:center;padding:12px 14px 12px 18px;background:#1d1f25}
+  .vC .tile.wide .tv{color:#f4f4f2;font-size:1.7rem}
+  .vC .tile.wide .tn{font-size:.78rem}
+
+
+  /* ───────── D · Tessere su carta (C con il foglio di A) ───────── */
+  .vD{background:#f4ecd6;color:#1f3b78;--bar-bg:#f4ecd6;--bar-line:#1f3b78;--btn-bg:#1f3b78;--btn-fg:#f4ecd6;--zero-bg:#b3261e;--zero-fg:#fff}
+  .vD .chipsC button{background:#ebe1c4;border-color:#d9cdb0;color:#6b6350}
+  .vD .chipsC button b{color:#1f3b78}
+  .vD .chipsC button[aria-pressed="true"]{background:#fffaf0;border-color:#1f3b78;color:#1f3b78}
+  .vD .key{color:#6b6350}
+  .vD .tile{background:#ebe1c4;color:#1f3b78;border-color:#d9cdb0}
+  .vD .g-up{--gc:#2f6fcf}.vD .g-same{--gc:#c8372d}.vD .g-fig{--gc:#23895a}.vD .g-ch{--gc:#e0a200}
+  .vD .tile .tn small{color:#6b6350}
+  .vD .tile .tv{color:#1f3b78}
+  .vD .tile .tv.zero{color:#b3261e}
+  .vD .tile.pick{background:#fffaf0;border-color:#d9cdb0}
+  .vD .tile.pick .tv{color:#4a64a8;font-style:italic;text-decoration:underline dashed 2px;text-underline-offset:5px;align-self:flex-start}
+  .vD .tile.pick:hover{background:#fff3cf}
+  .vD .tile.pick[aria-pressed="true"]{background:#fbe9a0;border-color:#1f3b78;transform:translateY(-2px)}
+  .vD .tile.wide{background:#ebe1c4}
+  .vD .tile.wide .tv{color:#1f3b78}
+
+  @media (prefers-reduced-motion:reduce){
+    .bar-btn,.vC .tile{transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Direzioni a confronto</div>
+    <h1 id="mockTitle">Scheda punteggio Yahtzee</h1>
+    <p class="lead">Tocca un nome in alto per cambiare direzione. Ogni tile mostra l'estetica, un'interazione viva e il <b>perché</b>.</p>
+  </header>
+
+  <nav id="chips" role="tablist" aria-label="Direzioni"></nav>
+
+  <main id="stage">
+    <div id="panels">
+
+      <section class="dir-panel" data-name="Blocchetto di carta" data-mood="avorio e penna blu · la scheda Yahtzee vera" data-why="Vedi te e lei affiancati nello stesso foglio: il confronto è immediato e il punteggio possibile compare a matita sulla riga, come quando scrivi a mano." data-role="">
+        <div class="split">
+          <div class="phone"><div class="felt" data-felt></div><div class="sheet vA" data-sheet="A"></div></div>
+          <aside class="side">
+            <h4>Come si legge</h4>
+            <ul>
+              <li><b>Due colonne</b>, Tu e Lei, sempre visibili insieme.</li>
+              <li>Il numero <b>blu a matita</b> è quanto varrebbe la riga con i dadi attuali.</li>
+              <li>Tocchi una riga, poi confermi in basso: niente errori di tocco.</li>
+              <li>Lo <b>0 rosso</b> è una categoria scartata.</li>
+            </ul>
+            <div class="legend"><span style="--c:#1f3b78">inchiostro = punti segnati</span><span style="--c:#4a64a8">matita = possibile</span><span style="--c:#b3261e">rosso = scartato</span></div>
+            <h4>Provalo in 3 passi</h4>
+            <ol class="steps">
+              <li>Tocca <b>Sei</b>: vale 18 e porta la parte alta a 63, quindi il bonus +35.</li>
+              <li>Conferma e aspetta Lei: al turno dopo i dadi sono 2-3-4-5-6 e la <b>Scala grande</b> vale 40.</li>
+              <li>Prova a toccare <b>Yahtzee</b>: vale 0, il tasto in basso diventa rosso e dice "Scarta".</li>
+            </ol>
+            <div class="ctl" data-ctl></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="dir-panel" data-name="Plancia ottone" data-mood="legno scuro e ottone · il tavolo da gioco continua nella scheda" data-why="Una colonna alla volta con barra del bonus 63 ben visibile: su telefono le righe sono larghe e il tocco è comodo." data-role="" hidden>
+        <div class="split">
+          <div class="phone"><div class="felt" data-felt></div><div class="sheet vB" data-sheet="B"></div></div>
+          <aside class="side">
+            <h4>Come si legge</h4>
+            <ul>
+              <li><b>Due schede in alto</b> con i totali: tocchi per guardare il foglio di Lei.</li>
+              <li>Il <b>riquadro ottone</b> è il punteggio possibile sulla riga libera.</li>
+              <li>La <b>barra verde</b> mostra a che punto sei verso i 63 del bonus +35.</li>
+              <li>Righe alte 50px, pensate per il pollice.</li>
+            </ul>
+            <div class="legend"><span style="--c:#f5d36b">ottone = si può scegliere</span><span style="--c:#7fb59a">verde = bonus</span><span style="--c:#e8998e">rosso = scartato</span></div>
+            <h4>Provalo in 3 passi</h4>
+            <ol class="steps">
+              <li>Tocca <b>Sei</b>: vale 18 e porta la parte alta a 63, quindi il bonus +35.</li>
+              <li>Conferma e aspetta Lei: al turno dopo i dadi sono 2-3-4-5-6 e la <b>Scala grande</b> vale 40.</li>
+              <li>Prova a toccare <b>Yahtzee</b>: vale 0, il tasto in basso diventa rosso e dice "Scarta".</li>
+            </ol>
+            <div class="ctl" data-ctl></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="dir-panel" data-name="Tessere colorate" data-mood="nero e colori pieni · stile UNO, una tessera per categoria" data-why="Ogni categoria è una tessera con il suo colore per famiglia: si capisce a colpo d'occhio cosa è libero e cosa vale, senza leggere una tabella." data-role="" hidden>
+        <div class="split">
+          <div class="phone"><div class="felt" data-felt></div><div class="sheet vC" data-sheet="C"></div></div>
+          <aside class="side">
+            <h4>Come si legge</h4>
+            <ul>
+              <li><b>Tessera chiara con numero bianco</b> = libera, puoi sceglierla.</li>
+              <li>Tessera spenta con numero grigio = già segnata.</li>
+              <li>Il <b>colore a lato</b> indica la famiglia: parte alta, uguali, figure, chance.</li>
+              <li>Due tasti in alto per passare dal foglio di Tu a quello di Lei.</li>
+            </ul>
+            <div class="legend"><span style="--c:#2f7be0">parte alta</span><span style="--c:#d6372b">uguali</span><span style="--c:#1f9d55">figure</span><span style="--c:#f2b705">chance</span></div>
+            <h4>Provalo in 3 passi</h4>
+            <ol class="steps">
+              <li>Tocca <b>Sei</b>: vale 18 e porta la parte alta a 63, quindi il bonus +35.</li>
+              <li>Conferma e aspetta Lei: al turno dopo i dadi sono 2-3-4-5-6 e la <b>Scala grande</b> vale 40.</li>
+              <li>Prova a toccare <b>Yahtzee</b>: vale 0, il tasto in basso diventa rosso e dice "Scarta".</li>
+            </ol>
+            <div class="ctl" data-ctl></div>
+          </aside>
+        </div>
+      </section>
+
+
+      <section class="dir-panel" data-name="Tessere su carta" data-mood="tessere colorate sul foglio avorio · inchiostro e matita" data-why="Unisce le due cose scelte: le tessere con il colore per famiglia dicono subito cosa è libero, il foglio di carta con inchiostro (segnato) e matita (possibile) dà il tono da scheda vera." data-role="" hidden>
+        <div class="split">
+          <div class="phone"><div class="felt" data-felt></div><div class="sheet vC vD" data-sheet="D"></div></div>
+          <aside class="side">
+            <h4>Come si legge</h4>
+            <ul>
+              <li><b>Tessera bianca con numero a matita</b> = libera, il numero è quanto varrebbe.</li>
+              <li>Tessera color carta con numero a inchiostro = già segnata.</li>
+              <li>Il <b>colore a lato</b> indica la famiglia: parte alta, uguali, figure, chance.</li>
+              <li>Due tasti in alto per passare dal foglio di Tu a quello di Lei.</li>
+            </ul>
+            <div class="legend"><span style="--c:#2f6fcf">parte alta</span><span style="--c:#c8372d">uguali</span><span style="--c:#23895a">figure</span><span style="--c:#e0a200">chance</span></div>
+            <h4>Provalo in 3 passi</h4>
+            <ol class="steps">
+              <li>Tocca <b>Sei</b>: vale 18 e porta la parte alta a 63, quindi il bonus +35.</li>
+              <li>Conferma e aspetta Lei: al turno dopo i dadi sono 2-3-4-5-6 e la <b>Scala grande</b> vale 40.</li>
+              <li>Prova a toccare <b>Yahtzee</b>: vale 0, il tasto in basso diventa rosso e dice "Scarta".</li>
+            </ol>
+            <div class="ctl" data-ctl></div>
+          </aside>
+        </div>
+      </section>
+
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ── Scocca generica: chip auto-costruiti dai pannelli, uno visibile alla volta ──
+(function(){
+  const panelsBox = document.getElementById('panels');
+  const panels = [...panelsBox.querySelectorAll('.dir-panel')];
+  const chips = document.getElementById('chips');
+
+  // Disegna la chrome (barra nome+mood, riga "perché") dentro ogni pannello dai data-*
+  panels.forEach(p=>{
+    const inner = p.innerHTML;
+    const role = p.dataset.role || '';
+    const tag = role ? `<span class="dir-tag" data-role="${role}">${role}</span>` : `<span class="dir-tag">Direzione</span>`;
+    p.innerHTML = `
+      <div class="dir-card">
+        <div class="dir-head">
+          <div>
+            <div class="dir-name">${p.dataset.name||'Direzione'}</div>
+            <div class="dir-mood">${p.dataset.mood||''}</div>
+          </div>${tag}
+        </div>
+        <div class="dir-body">${inner}</div>
+        ${p.dataset.why ? `<div class="dir-why">✶&nbsp;<span><b>Perché:</b> ${p.dataset.why}</span></div>` : ``}
+      </div>`;
+  });
+
+  function show(i){
+    panels.forEach((p,j)=>p.toggleAttribute('hidden', j!==i));
+    [...chips.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===i));
+  }
+
+  panels.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.setAttribute('role','tab');
+    b.setAttribute('aria-pressed', i===0 ? 'true':'false');
+    b.innerHTML = `<span class="swatch"></span>${p.dataset.name || ('Direzione '+(i+1))}`;
+    b.addEventListener('click', ()=>show(i));
+    chips.appendChild(b);
+  });
+
+  show(0);
+
+  // Esempio di interazione "viva ma leggera" con dato finto in localStorage.
+  // (La skill può riusare lo stesso pattern data-save nei pannelli reali.)
+  document.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-save]');
+    if(!btn) return;
+    const on = btn.dataset.on === '1';
+    btn.dataset.on = on ? '0':'1';
+    btn.textContent = on ? 'Salva' : 'Salvato ✓';
+    try{ localStorage.setItem('mockup-demo-saved', on ? '0':'1'); }catch(_){}
+  });
+})();
+</script>
+<script>
+// ── Mockup punteggio Yahtzee: UNA partita finta condivisa dalle 3 direzioni ──
+(function(){
+  const CATS=[
+    {id:'u1',n:'Uno',h:'somma degli 1',g:'up'},{id:'u2',n:'Due',h:'somma dei 2',g:'up'},
+    {id:'u3',n:'Tre',h:'somma dei 3',g:'up'},{id:'u4',n:'Quattro',h:'somma dei 4',g:'up'},
+    {id:'u5',n:'Cinque',h:'somma dei 5',g:'up'},{id:'u6',n:'Sei',h:'somma dei 6',g:'up'},
+    {id:'tris',n:'Tris',h:'3 uguali · somma tutti',g:'same'},{id:'poker',n:'Poker',h:'4 uguali · somma tutti',g:'same'},
+    {id:'full',n:'Full',h:'3 + 2 uguali · 25',g:'fig'},{id:'sp',n:'Scala piccola',h:'4 di fila · 30',g:'fig'},
+    {id:'sg',n:'Scala grande',h:'5 di fila · 40',g:'fig'},{id:'yz',n:'Yahtzee',h:'5 uguali · 50',g:'same'},
+    {id:'ch',n:'Chance',h:'somma di tutti',g:'ch'}
+  ];
+  const UP=['u1','u2','u3','u4','u5','u6'], LOW=['tris','poker','full','sp','sg','yz','ch'];
+  const SAMPLES=[[6,6,6,2,4],[2,3,4,5,6],[5,5,5,5,5],[1,2,2,4,6]];
+  const PIPS={1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+  const cat=id=>CATS.find(c=>c.id===id);
+
+  // punteggio che vale una categoria con questi dadi (regole classiche, senza joker)
+  function pot(id,d){
+    const c=[0,0,0,0,0,0,0]; d.forEach(v=>c[v]++);
+    const s=d.reduce((a,b)=>a+b,0), has=a=>a.every(v=>c[v]>0);
+    if(id[0]==='u') return c[+id[1]]*(+id[1]);
+    switch(id){
+      case 'tris': return c.some(x=>x>=3)?s:0;
+      case 'poker': return c.some(x=>x>=4)?s:0;
+      case 'full': return c.includes(3)&&c.includes(2)?25:0;
+      case 'sp': return [[1,2,3,4],[2,3,4,5],[3,4,5,6]].some(has)?30:0;
+      case 'sg': return [[1,2,3,4,5],[2,3,4,5,6]].some(has)?40:0;
+      case 'yz': return c.some(x=>x===5)?50:0;
+      default: return s;
+    }
+  }
+  const sum=(p,ids)=>ids.reduce((a,k)=>a+(p[k]??0),0);
+  const upper=p=>sum(p,UP), bonus=p=>upper(p)>=63?35:0, total=p=>upper(p)+bonus(p)+sum(p,LOW);
+
+  const fresh=()=>({
+    you:{u1:3,u2:6,u3:9,u4:12,u5:15,tris:22,poker:0,full:25,sp:30,ch:23},
+    her:{u1:2,u2:4,u3:6,u4:8,u5:10,u6:12,tris:19,full:0,sg:40,ch:21},
+    di:0, turn:'you', sel:null, viewer:'you', focus:true
+  });
+  let S=fresh(), timer=0;
+  const dice=()=>SAMPLES[S.di];
+  const done=()=>Object.keys(S.you).length===13&&Object.keys(S.her).length===13;
+
+  function dieHTML(v,mini){
+    const on=PIPS[v];
+    return `<span class="die${mini?' mini':''}" role="img" aria-label="Dado ${v}">${[1,2,3,4,5,6,7,8,9].map(k=>`<i class="${on.includes(k)?'on':''}"></i>`).join('')}</span>`;
+  }
+
+  function assign(){
+    if(S.turn!=='you'||!S.sel) return;
+    S.you[S.sel]=pot(S.sel,dice()); S.sel=null;
+    S.di=(S.di+1)%SAMPLES.length;
+    if(done()){S.turn='end';render();return}
+    S.turn='her'; render();
+    timer=setTimeout(herMove,1100);
+  }
+  function herMove(){
+    const d=SAMPLES[(S.di+2)%SAMPLES.length];
+    const free=CATS.filter(c=>S.her[c.id]===undefined);
+    if(free.length){
+      const best=free.reduce((a,c)=>pot(c.id,d)>pot(a.id,d)?c:a);
+      S.her[best.id]=pot(best.id,d);
+    }
+    S.turn=done()?'end':'you'; S.focus=true; render();
+  }
+
+  // ── pezzi condivisi ──
+  function felt(){
+    const st=S.turn==='you'?'Tuo turno · scegli dove segnare':S.turn==='her'?'Lei sta scegliendo…':'Partita finita';
+    return `<p class="st" aria-live="polite">${st}</p><div class="dice${S.turn==='you'?'':' wait'}">${dice().map(v=>dieHTML(v)).join('')}</div>`;
+  }
+  function bar(){
+    if(S.turn==='end'){
+      const a=total(S.you), b=total(S.her);
+      const w=a===b?'Pareggio':a>b?'Hai vinto tu':'Ha vinto Lei';
+      return `<div class="end"><b>${w}</b><span>Tu ${a} · Lei ${b}</span><button class="bar-btn" type="button" data-act="reset">Rivincita</button></div>`;
+    }
+    if(S.turn==='her') return `<p class="bar-msg">Tocca a Lei. Aspetta la sua mossa…</p>`;
+    if(!S.sel) return `<p class="bar-msg">Tocca una riga libera per sceglierla</p>`;
+    const v=pot(S.sel,dice()), c=cat(S.sel);
+    return v>0
+      ? `<button class="bar-btn" type="button" data-act="confirm">Segna ${c.n} · ${v} punti</button>`
+      : `<button class="bar-btn zero" type="button" data-act="confirm">Scarta ${c.n} · 0 punti</button>`;
+  }
+  const canPick=(who,id)=>who==='you'&&S.turn==='you'&&S.you[id]===undefined;
+
+  // ── A: due colonne affiancate ──
+  function viewA(){
+    const cell=(p,id,mine)=>{
+      const v=p[id];
+      if(v!==undefined) return `<span class="val${v===0?' zero':''}">${v}</span>`;
+      return mine&&S.turn==='you'?`<span class="pot">${pot(id,dice())}</span>`:'';
+    };
+    const row=c=>{
+      const pick=canPick('you',c.id);
+      const inner=`<span class="nm">${c.n}<small>${c.h}</small></span><span class="c">${cell(S.you,c.id,true)}</span><span class="c">${cell(S.her,c.id,false)}</span>`;
+      return pick?`<button type="button" class="rA" data-pick="${c.id}" aria-pressed="${S.sel===c.id}">${inner}</button>`:`<div class="rA">${inner}</div>`;
+    };
+    const sub=(t,a,b)=>`<div class="rA sub"><span class="nm">${t}</span><span class="c">${a}</span><span class="c">${b}</span></div>`;
+    return `<div class="hdA"><span>Categoria</span><span class="me">Tu</span><span>Lei</span></div>`
+      +UP.map(id=>row(cat(id))).join('')
+      +sub('Parte alta',upper(S.you)+'/63',upper(S.her)+'/63')
+      +sub('Bonus 63',bonus(S.you)?'+35':'-',bonus(S.her)?'+35':'-')
+      +LOW.map(id=>row(cat(id))).join('')
+      +`<div class="rA tot"><span class="nm">Totale</span><span class="c val">${total(S.you)}</span><span class="c val">${total(S.her)}</span></div>`
+      +`<div class="bar">${bar()}</div>`;
+  }
+
+  // ── B: una colonna, schede in alto ──
+  function viewB(){
+    const who=S.viewer, p=S[who];
+    const tab=(k,n)=>`<button type="button" data-viewer="${k}" aria-pressed="${who===k}"><small>${n}</small><b>${total(S[k])}</b></button>`;
+    const row=c=>{
+      const v=p[c.id], pick=canPick(who,c.id);
+      const right=v!==undefined?`<span class="valB${v===0?' zero':''}">${v}</span>`:pick?`<span class="pill">${pot(c.id,dice())}</span>`:`<span class="free">libero</span>`;
+      const inner=`<span class="nm">${c.n}<small>${c.h}</small></span>${right}`;
+      return pick?`<button type="button" class="rB" data-pick="${c.id}" aria-pressed="${S.sel===c.id}">${inner}</button>`:`<div class="rB">${inner}</div>`;
+    };
+    const up=upper(p), pct=Math.min(100,Math.round(up/63*100));
+    const msg=up>=63?`<b>Bonus +35 preso</b> (${up}/63)`:`Parte alta ${up}/63 · mancano <b>${63-up}</b> per il bonus +35`;
+    return `<div class="tabs">${tab('you','Tu')}${tab('her','Lei')}</div>`
+      +UP.map(id=>row(cat(id))).join('')
+      +`<div class="prog"><div class="track"><i style="width:${pct}%"></i></div><p>${msg}</p></div>`
+      +LOW.map(id=>row(cat(id))).join('')
+      +`<div class="totB"><span>Totale ${who==='you'?'Tu':'Lei'}</span><span>${total(p)}</span></div>`
+      +`<div class="bar">${bar()}</div>`;
+  }
+
+  // ── C: griglia di tessere ──
+  function viewC(){
+    const who=S.viewer, p=S[who];
+    const chip=(k,n)=>`<button type="button" data-viewer="${k}" aria-pressed="${who===k}"><span>${n}</span><b>${total(S[k])}</b></button>`;
+    const tile=c=>{
+      const v=p[c.id], pick=canPick(who,c.id);
+      const num=v!==undefined?`<span class="tv${v===0?' zero':''}">${v}</span>`:pick?`<span class="tv">${pot(c.id,dice())}</span>`:`<span class="tv">-</span>`;
+      const face=c.g==='up'?dieHTML(+c.id[1],true).replace('role="img"','aria-hidden="true"').replace(/ aria-label="[^"]*"/,''):'';
+      const inner=`${face}<span class="tn">${c.n}<small>${c.h}</small></span>${num}`;
+      return pick?`<button type="button" class="tile pick g-${c.g}" data-pick="${c.id}" aria-pressed="${S.sel===c.id}">${inner}</button>`:`<div class="tile g-${c.g}">${inner}</div>`;
+    };
+    const up=upper(p);
+    return `<div class="chipsC">${chip('you','Tu')}${chip('her','Lei')}</div>`
+      +`<div class="key"><span style="--c:#2f7be0">parte alta</span><span style="--c:#d6372b">uguali</span><span style="--c:#1f9d55">figure</span><span style="--c:#f2b705">chance</span></div>`
+      +`<div class="tiles">${CATS.map(tile).join('')}`
+      +`<div class="tile wide"><span class="tn">Parte alta ${up}/63<small>${up>=63?'bonus +35 preso':'mancano '+(63-up)+' per il bonus +35'}</small></span><span class="tv">${total(p)}</span></div></div>`
+      +`<div class="bar">${bar()}</div>`;
+  }
+
+  function controls(){
+    return `<button type="button" data-act="dice"${S.turn==='you'?'':' disabled'}>Cambia i dadi</button><button type="button" data-act="reset">Ricomincia</button><small>Solo anteprima: i dadi veri li tira il tavolo. Qui servono per provare le righe con tiri diversi.</small>`;
+  }
+
+  function render(){
+    document.querySelectorAll('[data-felt]').forEach(e=>e.innerHTML=felt());
+    document.querySelectorAll('[data-ctl]').forEach(e=>e.innerHTML=controls());
+    [['A',viewA],['B',viewB],['C',viewC],['D',viewC]].forEach(([k,f])=>{
+      const el=document.querySelector(`[data-sheet="${k}"]`); if(!el) return;
+      const top=el.scrollTop; el.innerHTML=f(); el.scrollTop=top;
+    });
+    S.focus=false;
+  }
+
+  document.addEventListener('click',e=>{
+    const t=e.target.closest('[data-pick],[data-act],[data-viewer]'); if(!t) return;
+    if(t.dataset.pick){ S.sel=S.sel===t.dataset.pick?null:t.dataset.pick; render(); }
+    else if(t.dataset.viewer){ S.viewer=t.dataset.viewer; S.sel=null; render(); }
+    else if(t.dataset.act==='confirm') assign();
+    else if(t.dataset.act==='dice'){ if(S.turn==='you'){ S.di=(S.di+1)%SAMPLES.length; S.sel=null; S.focus=true; render(); } }
+    else if(t.dataset.act==='reset'){ clearTimeout(timer); S=fresh(); render(); }
+  });
+  document.getElementById('chips').addEventListener('click',()=>setTimeout(()=>{S.focus=true;render()},0));
+  render();
+})();
+</script>
+</body>
+</html>
