@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './App.css'
+import DadiTable from './games/dadi/DadiTable'
 import denari7 from './assets/cards/napoletane/denari-07.jpg'
 import bastoni3 from './assets/cards/napoletane/bastoni-03.jpg'
 import coppe1 from './assets/cards/napoletane/coppe-01.jpg'
@@ -215,12 +216,17 @@ function Library() {
 function App() {
   const [concept, setConcept] = useState<Concept>(1)
   const [recentIds, setRecentIds] = useState(loadRecents)
+  const [openGame, setOpenGame] = useState<Game['id'] | null>(null)
   const recentGames = recentIds.map((id) => games.find((game) => game.id === id)!)
   const play = (game: Game) => {
     const next = [game.id, ...recentIds.filter((id) => id !== game.id)]
     localStorage.setItem('recent-games', JSON.stringify(next))
     setRecentIds(next)
+    // per ora si apre solo il tavolo dei dadi; gli altri giochi non hanno ancora una schermata
+    if (game.id === 'dadi') setOpenGame('dadi')
   }
+
+  if (openGame === 'dadi') return <main><DadiTable onBack={() => setOpenGame(null)} /></main>
 
   return <main><Picker concept={concept} onChange={setConcept} />{concept === 1 && <Product recentGames={recentGames} onPlay={play} />}{concept === 2 && <Night />}{concept === 3 && <Library />}</main>
 }
