@@ -1,15 +1,15 @@
 # CardlyHub
 
-A multiplayer card game web app, starting with two-player Machiavelli in private rooms.
+Una piattaforma web di giochi di carte, a partire da Machiavelli multigiocatore, Briscola e Solitario.
 
-## Development
+## Sviluppo
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Checks
+## Verifiche
 
 ```bash
 npm run lint

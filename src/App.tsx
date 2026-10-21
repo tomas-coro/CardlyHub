@@ -1,145 +1,149 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
 import './App.css'
 
-type Mode = 'create' | 'join'
+type Concept = 1 | 2 | 3
 
-function App() {
-  const [mode, setMode] = useState<Mode>('create')
-  const [message, setMessage] = useState('')
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setMessage(
-      mode === 'create'
-        ? 'Room setup saved. Online rooms are the next step.'
-        : 'Room code accepted. Online rooms are the next step.',
-    )
-  }
-
+function ConceptPicker({ concept, onChange }: { concept: Concept; onChange: (concept: Concept) => void }) {
   return (
-    <main>
-      <header className="site-header">
-        <a className="brand" href="/" aria-label="CardlyHub home">
-          <span aria-hidden="true">♣</span> CardlyHub
-        </a>
-        <p>Classic cards, played together.</p>
+    <nav className="concept-picker" aria-label="Scegli il mockup">
+      <strong>Confronta le proposte</strong>
+      <div>
+        <button className={concept === 1 ? 'selected' : ''} onClick={() => onChange(1)}>1 · Sala giochi</button>
+        <button className={concept === 2 ? 'selected' : ''} onClick={() => onChange(2)}>2 · Circolo italiano</button>
+        <button className={concept === 3 ? 'selected' : ''} onClick={() => onChange(3)}>3 · Arcade</button>
+      </div>
+    </nav>
+  )
+}
+
+function SalaGiochi() {
+  return (
+    <section className="concept concept-one">
+      <header>
+        <a className="logo" href="/" aria-label="CardlyHub, pagina iniziale"><i>♣</i> CardlyHub</a>
+        <p>Il tavolo da gioco che porti con te.</p>
+        <button type="button">Entra con un codice</button>
       </header>
 
-      <section className="hero" aria-labelledby="page-title">
-        <div className="intro">
-          <p className="kicker">Machiavelli · private table</p>
-          <h1 id="page-title">Your table is ready when your friend is.</h1>
-          <p className="lead">
-            Open a private room, share the code and play live. No account needed.
-          </p>
-          <ul className="quick-facts" aria-label="Game highlights">
-            <li>2 players</li>
-            <li>Live turns</li>
-            <li>Undo anytime</li>
-          </ul>
-
-          <div className="room-panel">
-            <div className="mode-switch" role="group" aria-label="Room action">
-              <button
-                className={mode === 'create' ? 'active' : ''}
-                type="button"
-                aria-pressed={mode === 'create'}
-                onClick={() => {
-                  setMode('create')
-                  setMessage('')
-                }}
-              >
-                Create a room
-              </button>
-              <button
-                className={mode === 'join' ? 'active' : ''}
-                type="button"
-                aria-pressed={mode === 'join'}
-                onClick={() => {
-                  setMode('join')
-                  setMessage('')
-                }}
-              >
-                Join with a code
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <label>
-                Your name
-                <input name="playerName" autoComplete="nickname" maxLength={24} required />
-              </label>
-
-              {mode === 'create' ? (
-                <div className="options-row">
-                  <label>
-                    Match
-                    <select name="matchType" defaultValue="quick">
-                      <option value="quick">Quick match</option>
-                      <option value="best-of-3">Best of 3</option>
-                      <option value="best-of-5">Best of 5</option>
-                      <option value="101">First to 101</option>
-                    </select>
-                  </label>
-                  <label>
-                    Table moves
-                    <select name="tableMoves" defaultValue="immediate">
-                      <option value="immediate">Immediately</option>
-                      <option value="after-opening">After opening</option>
-                    </select>
-                  </label>
-                </div>
-              ) : (
-                <label>
-                  Room code
-                  <input
-                    className="room-code"
-                    name="roomCode"
-                    inputMode="text"
-                    autoComplete="off"
-                    minLength={6}
-                    maxLength={6}
-                    pattern="[A-Za-z0-9]{6}"
-                    placeholder="A7K2Q9"
-                    required
-                  />
-                </label>
-              )}
-
-              <button className="primary-action" type="submit">
-                {mode === 'create' ? 'Create private room' : 'Join room'}
-              </button>
-              <p className="form-note" aria-live="polite">
-                {message || 'Free to play · 2 players · no sign-up'}
-              </p>
-            </form>
-          </div>
+      <div className="playroom-layout">
+        <div className="playroom-copy">
+          <span className="tag">Nessun account. Solo una partita.</span>
+          <h1>Un tavolo per ogni mazzo.</h1>
+          <p>Scegli il gioco, invita chi vuoi e comincia. Oppure prenditi cinque minuti solo per te.</p>
+          <button className="cta-one" type="button">Crea una stanza</button>
         </div>
 
-        <div className="table-scene" aria-label="A Machiavelli card table illustration">
-          <div className="table-mark">
-            <span>M</span>
-            <small>Machiavelli</small>
-          </div>
-          <div className="card card-one">
-            <span>7</span>
-            <b>♥</b>
-            <span>7</span>
-          </div>
-          <div className="card card-two black">
-            <span>8</span>
-            <b>♣</b>
-            <span>8</span>
-          </div>
-          <div className="card card-three">
-            <span>9</span>
-            <b>♦</b>
-            <span>9</span>
-          </div>
-          <p>104 cards. No jokers.<br />Make, move, rethink.</p>
+        <div className="game-shelf" aria-label="Giochi disponibili">
+          <article className="game-tile machiavelli">
+            <div className="mini-cards french"><b>7♥</b><b>8♣</b><b>9♦</b></div>
+            <span>2 giocatori</span>
+            <h2>Machiavelli</h2>
+            <p>Componi, sposta, sorprendi.</p>
+          </article>
+          <article className="game-tile briscola">
+            <div className="italian-card"><b>3</b><i>🏆</i><small>COPPE</small></div>
+            <span>2–4 giocatori</span>
+            <h2>Briscola</h2>
+            <p>La classica sfida italiana.</p>
+          </article>
+          <article className="game-tile solitario">
+            <div className="solitaire-stack"><i></i><i></i><b>A♠</b></div>
+            <span>1 giocatore</span>
+            <h2>Solitario</h2>
+            <p>Una pausa, al tuo ritmo.</p>
+          </article>
         </div>
-      </section>
+      </div>
+    </section>
+  )
+}
+
+function CircoloItaliano() {
+  return (
+    <section className="concept concept-two">
+      <header>
+        <a className="logo" href="/" aria-label="CardlyHub, pagina iniziale">CardlyHub</a>
+        <p>Giochi di carte, ovunque ci sia compagnia.</p>
+        <button type="button">Come funziona</button>
+      </header>
+
+      <div className="circolo-layout">
+        <div className="circolo-visual" aria-hidden="true">
+          <div className="sun"></div>
+          <div className="regional-card bastoni"><b>ASSO</b><i>♜</i><span>BASTONI</span></div>
+          <div className="regional-card coppe"><b>TRE</b><i>●<br />● ●</i><span>COPPE</span></div>
+          <p>Dal tavolo del bar<br />allo schermo di casa.</p>
+        </div>
+
+        <div className="circolo-copy">
+          <p className="edition">Edizione italiana</p>
+          <h1>Le partite di sempre, con chi vuoi.</h1>
+          <p className="intro">Machiavelli, Briscola e Solitario in uno spazio semplice, accogliente e senza registrazione.</p>
+
+          <div className="game-menu">
+            <button type="button"><span>01</span><b>Machiavelli</b><small>Gioca insieme</small></button>
+            <button type="button"><span>02</span><b>Briscola</b><small>Sfida gli amici</small></button>
+            <button type="button"><span>03</span><b>Solitario</b><small>Gioca da solo</small></button>
+          </div>
+          <div className="circolo-actions">
+            <button className="primary" type="button">Scegli un gioco</button>
+            <button type="button">Ho un codice stanza</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Arcade() {
+  return (
+    <section className="concept concept-three">
+      <header>
+        <a className="logo" href="/" aria-label="CardlyHub, pagina iniziale"><i>CH</i> CardlyHub</a>
+        <p>La tua sala carte digitale</p>
+        <button type="button">Codice stanza ↗</button>
+      </header>
+
+      <div className="arcade-layout">
+        <div className="arcade-copy">
+          <p className="online"><i></i> Tavoli aperti</p>
+          <h1>Scegli.<br />Mescola.<br />Gioca.</h1>
+          <p>Classici italiani, giochi internazionali e sfide in solitaria. Tutto nello stesso posto.</p>
+          <button className="arcade-cta" type="button">Inizia a giocare <span>▶</span></button>
+        </div>
+
+        <div className="arcade-library">
+          <div className="library-title"><span>In evidenza</span><small>3 giochi</small></div>
+          <article className="arcade-game featured">
+            <div className="pixel-art">7<span>♥</span></div>
+            <div><small>Strategia · 2 giocatori</small><h2>Machiavelli</h2><p>Il tavolo cambia a ogni mossa.</p></div>
+            <button type="button" aria-label="Apri Machiavelli">→</button>
+          </article>
+          <article className="arcade-game">
+            <div className="cup-art">♛<span>coppe</span></div>
+            <div><small>Classico italiano · 2–4</small><h2>Briscola</h2><p>Conta le carte, prendi la mano.</p></div>
+            <button type="button" aria-label="Apri Briscola">→</button>
+          </article>
+          <article className="arcade-game">
+            <div className="solo-art">A♠</div>
+            <div><small>In solitaria · senza fretta</small><h2>Solitario</h2><p>La tua partita, i tuoi tempi.</p></div>
+            <button type="button" aria-label="Apri Solitario">→</button>
+          </article>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function App() {
+  const [concept, setConcept] = useState<Concept>(1)
+
+  return (
+    <main className={`show-concept-${concept}`}>
+      <ConceptPicker concept={concept} onChange={setConcept} />
+      {concept === 1 && <SalaGiochi />}
+      {concept === 2 && <CircoloItaliano />}
+      {concept === 3 && <Arcade />}
     </main>
   )
 }
