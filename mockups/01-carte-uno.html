@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  viewer-template.html · scocca del visualizzatore di direzioni (skill `mockup`)
+  ─────────────────────────────────────────────────────────────────────────────
+  SCOCCA FISSA, CONTENUTO VARIABILE.
+  La skill sostituisce SOLO il contenuto di <div id="panels"> con i 3/4 pannelli
+  reali. Ogni direzione è un <section class="dir-panel" data-name data-mood data-why>
+  che contiene SOLO il design di anteprima: la barra-titolo (nome+mood) e la riga
+  "perché" sono disegnate automaticamente dallo script qui sotto.
+  I chip in #chips sono generati automaticamente, uno per pannello.
+  NON modificare la scocca o lo script: cambia solo #panels (e <title>).
+-->
+<title>Carte UNO tre direzioni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Libre+Franklin:wght@500;700&family=Young+Serif&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14171e; --ink-2:#1b1f28; --ink-3:#232936;
+    --line:#323a4a; --bone:#e9e4d8; --bone-dim:#a39e93;
+    --brass:#e0a96d; --brass-deep:#b9824a; --ok:#7fb59a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #1d2230 0, transparent 60%), var(--ink);
+    color:var(--bone); font-family:"Hanken Grotesk",sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 18px 64px}
+
+  header.top{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}
+  .eyebrow{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--brass);font-weight:700}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(1.4rem,4vw,2rem);margin:.35rem 0 0;letter-spacing:-.015em}
+  .lead{color:var(--bone-dim);font-size:.9rem;margin:.45rem 0 0;max-width:52ch}
+
+  /* chip bar */
+  #chips{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
+  #chips button{
+    font:inherit;font-weight:600;font-size:.84rem;color:var(--bone-dim);
+    background:var(--ink-2);border:1px solid var(--line);border-radius:11px;
+    padding:10px 15px;min-height:44px;cursor:pointer;display:flex;align-items:center;gap:8px;
+    transition:color .15s ease, background .15s ease, border-color .15s ease;
+  }
+  #chips button:hover{color:var(--bone)}
+  #chips button[aria-pressed="true"]{border-color:var(--brass);color:var(--bone);background:var(--ink-3)}
+  #chips button .swatch{width:11px;height:11px;border-radius:4px;background:var(--brass);flex:none}
+
+  /* palco */
+  #stage{position:relative}
+  .dir-panel[hidden]{display:none}
+  .dir-panel{animation:fade .28s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .dir-card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  .dir-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .dir-name{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1.1rem;line-height:1.15}
+  .dir-mood{font-size:.74rem;color:var(--bone-dim);margin-top:2px}
+  .dir-tag{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;padding:5px 9px;border-radius:99px;white-space:nowrap;background:var(--ink-3);color:var(--bone-dim);border:1px solid var(--line)}
+  .dir-tag[data-role="Attuale"]{background:rgba(224,169,109,.16);color:var(--brass);border-color:var(--brass-deep)}
+  .dir-tag[data-role="Variante +"]{background:rgba(127,181,154,.14);color:var(--ok);border-color:#3f5a4f}
+  .dir-body{padding:20px 18px}
+  .dir-why{display:flex;gap:9px;align-items:flex-start;padding:13px 18px;border-top:1px solid var(--line);background:rgba(255,255,255,.015);font-size:.82rem;color:var(--bone-dim)}
+  .dir-why b{color:var(--bone);font-weight:600}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+
+  /* ───────── stili di esempio dei pannelli (la skill li sostituisce) ───────── */
+  .demo-nav{display:flex;gap:8px;align-items:center;font-size:.7rem;color:var(--bone-dim);margin-bottom:14px}
+  .demo-dot{width:8px;height:8px;border-radius:99px;background:var(--line)}
+  .demo-h{margin:0 0 8px;line-height:1.05}
+  .demo-p{margin:0 0 16px;font-size:.86rem;color:var(--bone-dim)}
+  .demo-btn{font:inherit;font-weight:700;font-size:.82rem;border:0;border-radius:9px;padding:11px 16px;min-height:44px;cursor:pointer;transition:transform .12s ease, filter .12s ease}
+  .demo-btn:hover{transform:translateY(-2px);filter:brightness(1.07)}
+  .t-edit .demo-h{font-family:"Bodoni Moda",serif;font-weight:500;font-size:1.7rem;color:#f1ece1}
+  .t-edit .demo-btn{background:#e9e4d8;color:#181818}
+  .t-retro{background:linear-gradient(180deg,#241a12,#1b1f28);margin:-20px -18px;padding:20px 18px;border-radius:0}
+  .t-retro .demo-h{font-family:"Bodoni Moda",serif;font-style:italic;font-weight:500;font-size:1.7rem;color:#f0c98a}
+  .t-retro .demo-btn{background:#d98b3f;color:#1a1206}
+  .t-tech .demo-h{font-family:"Hanken Grotesk";font-weight:700;letter-spacing:-.02em;font-size:1.6rem;color:#dfe7f2}
+  .t-tech .demo-btn{background:#5b7fb0;color:#0c1118}
+  /* ───────── carte UNO: base comune ───────── */
+  :root{--red:#e4261f;--yellow:#f7c600;--green:#2f9e44;--blue:#1f6fd1}
+  .stage-x{margin:-20px -18px;padding:20px 18px 24px}
+  .cap{margin:0 0 10px;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;font-weight:700;opacity:.7}
+  .gal{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px}
+  .gal .uc{--w:clamp(56px,13vw,80px)}
+  .table{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+  .table .uc,.hand .uc{--w:clamp(64px,17vw,112px)}
+  .stat{margin:0;font-size:.82rem;line-height:1.4;flex:1 1 150px;min-height:2.4em}
+  .hand{display:flex;justify-content:center;padding:18px 0 4px}
+  .hand .uc:not(:first-child){margin-left:calc(var(--w) * var(--ov,.4) * -1)}
+  .uc{position:relative;display:block;flex:none;width:var(--w);aspect-ratio:2/3;container-type:size;
+      border:0;padding:0;font:inherit;text-align:left;border-radius:calc(var(--w) * .09);
+      transition:transform .18s ease, filter .18s ease}
+  button.uc{cursor:pointer}
+  button.uc:focus-visible{outline:3px solid #fff;outline-offset:3px;z-index:20}
+  .hand .uc.ok{transform:translateY(-12%)}
+  .hand .uc.ok:hover,.hand .uc.ok:focus-visible{transform:translateY(-22%);z-index:10}
+  .hand .uc:not(.ok){filter:brightness(.72) saturate(.8)}
+  .uc.land{animation:land .24s ease}
+  @keyframes land{from{transform:scale(1.18) rotate(-4deg);opacity:.4}to{transform:none;opacity:1}}
+  .uc .face{position:absolute;overflow:hidden}
+  .uc .orn{position:absolute}
+  .uc .big{position:absolute;display:flex;align-items:center;justify-content:center;line-height:1}
+  .uc .big svg{display:block}
+  .uc .idx{position:absolute;display:flex;align-items:center;justify-content:center;line-height:1;z-index:3}
+  .uc .idx svg{width:1em;height:1em;display:block}
+  .uc .nm{display:none}
+  .c-red{--c:var(--red);--ct:#fff}
+  .c-yellow{--c:var(--yellow);--ct:#16181d}
+  .c-green{--c:var(--green);--ct:#fff}
+  .c-blue{--c:var(--blue);--ct:#fff}
+  .c-wild,.c-back{--c:#14161b;--ct:#fff}
+  .quad{background:conic-gradient(from 0deg,var(--blue) 0 25%,var(--green) 0 50%,var(--yellow) 0 75%,var(--red) 0)}
+
+  /* ═════ 1 · POP GEOMETRICO ═════ */
+  .s-pop{background:#121a30;color:#dfe5f5}
+  .s-pop .uc{background:#fff;box-shadow:0 2px 0 rgba(0,0,0,.35)}
+  .s-pop .face{inset:6cqw;border-radius:7cqw;background:var(--c)}
+  .s-pop .face::before{content:"";position:absolute;left:-16cqw;bottom:-16cqw;width:46cqw;height:46cqw;border-radius:50%;background:rgba(0,0,0,.2)}
+  .s-pop .face::after{content:"";position:absolute;right:0;top:0;width:30cqw;height:30cqw;background:rgba(255,255,255,.2);clip-path:polygon(0 0,100% 0,100% 100%)}
+  .s-pop .orn{left:50%;top:50%;width:86%;height:60%;background:#fff;border-radius:50%;transform:translate(-50%,-50%) rotate(-28deg)}
+  .s-pop .c-wild .orn{background:conic-gradient(from 0deg,var(--blue) 0 25%,var(--green) 0 50%,var(--yellow) 0 75%,var(--red) 0);border:2.4cqw solid #fff;width:70%;height:50%}
+  .s-pop .big{inset:0;font-family:"Archivo",sans-serif;font-weight:900;font-size:56cqw;color:var(--c);letter-spacing:-.04em;z-index:2}
+  .s-pop .big.long{font-size:38cqw}
+  .s-pop .big svg{width:42cqw;height:42cqw}
+  .s-pop .c-yellow .big{color:#16181d}
+  .s-pop .c-wild .big{color:#fff;-webkit-text-stroke:2.4cqw #14161b;paint-order:stroke fill}
+  .s-pop .idx{font-family:"Archivo",sans-serif;font-weight:800;font-size:14cqw;color:var(--ct)}
+  .s-pop .idx.tl{left:11cqw;top:9cqw}
+  .s-pop .idx.br{right:11cqw;bottom:9cqw;transform:rotate(180deg)}
+  .s-pop .c-back .orn{background:var(--red);width:84%;height:56%}
+  .s-pop .c-back .big{font-size:15cqw;color:var(--yellow);letter-spacing:.04em;transform:rotate(-28deg);-webkit-text-stroke:1.6cqw #14161b;paint-order:stroke fill}
+
+  /* ═════ 2 · STAMPA VINTAGE ═════ */
+  .s-vint{background:#1d4a38;color:#e8e1c8;background-image:radial-gradient(900px 400px at 50% 0,rgba(255,255,255,.07),transparent 70%)}
+  .s-vint .c-red{--c:#c7311f;--ci:#b8281a}
+  .s-vint .c-yellow{--c:#e3a915;--ci:#8f6400}
+  .s-vint .c-green{--c:#2c7a4a;--ci:#1f6a3b}
+  .s-vint .c-blue{--c:#234f9b;--ci:#1c4286}
+  .s-vint .c-wild,.s-vint .c-back{--ci:#1b1b1b}
+  .s-vint .uc{background:#f2e9d3;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+  .s-vint .face{inset:5cqw;border:1.1cqw solid var(--ci);border-radius:4cqw}
+  .s-vint .face::before{content:"";position:absolute;inset:2.6cqw;border:.5cqw solid var(--ci);border-radius:2cqw;opacity:.75}
+  .s-vint .orn{left:50%;top:50%;width:66cqw;height:66cqw;border-radius:50%;transform:translate(-50%,-50%);
+    background:repeating-linear-gradient(135deg,rgba(0,0,0,.13) 0 .8cqw,transparent .8cqw 2.5cqw),var(--c);box-shadow:0 0 0 1.2cqw #f2e9d3,0 0 0 2cqw var(--ci)}
+  .s-vint .c-wild .orn{background:repeating-linear-gradient(135deg,rgba(0,0,0,.13) 0 .8cqw,transparent .8cqw 2.5cqw),conic-gradient(from 0deg,var(--blue) 0 25%,var(--green) 0 50%,var(--yellow) 0 75%,var(--red) 0)}
+  .s-vint .big{inset:0;font-family:"Young Serif",serif;font-size:44cqw;color:var(--ct);z-index:2;text-shadow:.8cqw .8cqw 0 rgba(0,0,0,.28)}
+  .s-vint .big.long{font-size:32cqw}
+  .s-vint .big svg{width:34cqw;height:34cqw}
+  .s-vint .c-wild .big{color:#f2e9d3;-webkit-text-stroke:2cqw #1b1b1b;paint-order:stroke fill;text-shadow:none}
+  .s-vint .idx{font-family:"Young Serif",serif;font-size:13cqw;color:var(--ci)}
+  .s-vint .idx.tl{left:10cqw;top:9cqw}
+  .s-vint .idx.br{right:10cqw;bottom:9cqw;transform:rotate(180deg)}
+  .s-vint .c-back .orn{background:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 .8cqw,transparent .8cqw 2.5cqw),#7a1f14}
+  .s-vint .c-back .big{font-size:11cqw;letter-spacing:.14em;color:#f2e9d3;text-shadow:none}
+  .s-vint .c-back{--ci:#7a1f14}
+
+  /* ═════ 3 · SVIZZERO A BLOCCHI ═════ */
+  .s-swiss{background:#dcdcd5;color:#16181d}
+  .s-swiss .uc{background:#f7f6f1;box-shadow:0 1px 0 rgba(0,0,0,.28)}
+  .s-swiss .face{inset:0;border-radius:inherit}
+  .s-swiss .orn{right:0;top:0;bottom:0;width:36%;background:var(--c)}
+  .s-swiss .c-wild{background:#14161b}
+  .s-swiss .c-wild .orn{background:linear-gradient(180deg,var(--red) 0 25%,var(--blue) 0 50%,var(--green) 0 75%,var(--yellow) 0)}
+  .s-swiss .big{left:9cqw;bottom:4cqw;justify-content:flex-start;font-family:"Sora",sans-serif;font-weight:800;font-size:68cqw;letter-spacing:-.07em;color:#14161b}
+  .s-swiss .big.long{font-size:44cqw}
+  .s-swiss .big svg{width:40cqw;height:40cqw;margin-bottom:4cqw}
+  .s-swiss .c-wild .big{color:#fff}
+  .s-swiss .idx.tl{left:9cqw;top:8cqw;font-family:"Sora",sans-serif;font-weight:700;font-size:11cqw;color:#14161b}
+  .s-swiss .c-wild .idx.tl{color:#fff}
+  .s-swiss .idx.br{display:none}
+  .s-swiss .nm{display:block;position:absolute;left:9cqw;top:24cqw;font-family:"Sora",sans-serif;font-weight:700;font-size:7cqw;letter-spacing:.16em;text-transform:uppercase;color:#14161b;opacity:.6;z-index:3}
+  .s-swiss .c-wild .nm{color:#fff}
+  .s-swiss .c-back{background:#14161b}
+  .s-swiss .c-back .orn{background:var(--red)}
+  .s-swiss .c-back .big{font-size:15cqw;letter-spacing:.08em;color:#fff;left:9cqw;bottom:9cqw;font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Direzioni a confronto</div>
+    <h1 id="mockTitle">Carte UNO riprogettate</h1>
+    <p class="lead">Tocca un nome in alto per cambiare direzione. Ogni tile mostra l'estetica, un'interazione viva e il <b>perché</b>.</p>
+  </header>
+
+  <nav id="chips" role="tablist" aria-label="Direzioni"></nav>
+
+  <main id="stage">
+    <div id="panels">
+
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="i-skip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="3"/><path d="M6.2 17.8L17.8 6.2" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+        <symbol id="i-rev" viewBox="0 0 24 24"><path d="M3.5 8.5h13M12.5 4.5l4 4-4 4M20.5 15.5h-13M11.5 11.5l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-quad" viewBox="0 0 24 24"><path d="M12 12H2A10 10 0 0 1 12 2z" fill="#e4261f"/><path d="M12 12V2a10 10 0 0 1 10 10z" fill="#1f6fd1"/><path d="M12 12h10a10 10 0 0 1-10 10z" fill="#2f9e44"/><path d="M12 12v10A10 10 0 0 1 2 12z" fill="#f7c600"/></symbol>
+      </svg>
+
+      <section class="dir-panel" data-name="Pop geometrico" data-mood="Bauhaus · il classico UNO, ripulito" data-why="Colore pieno e ovale inclinato: si riconosce a un metro, anche con le carte sovrapposte a ventaglio." data-role="">
+        <div class="stage-x s-pop">
+          <p class="cap">Il set completo</p>
+          <div class="gal" data-gallery></div>
+          <p class="cap">Prova una mano · tocca una carta rialzata</p>
+          <div class="game">
+            <div class="table"><button class="uc c-back" type="button" data-draw aria-label="Pesca una carta"></button><div class="pile"></div><p class="stat" aria-live="polite"></p></div>
+            <div class="hand"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dir-panel" data-name="Stampa vintage" data-mood="linoleografia · mazzi da osteria" data-why="Inchiostri su carta crema con medaglione: ha il calore delle carte di tradizione, ma resta leggibile." data-role="" hidden>
+        <div class="stage-x s-vint">
+          <p class="cap">Il set completo</p>
+          <div class="gal" data-gallery></div>
+          <p class="cap">Prova una mano · tocca una carta rialzata</p>
+          <div class="game">
+            <div class="table"><button class="uc c-back" type="button" data-draw aria-label="Pesca una carta"></button><div class="pile"></div><p class="stat" aria-live="polite"></p></div>
+            <div class="hand"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dir-panel" data-name="Svizzero a blocchi" data-mood="International Style · alla Müller-Brockmann" data-why="Un blocco colore e un numero gigante: la lettura è immediata e l'indice resta pulito anche in mano." data-role="" hidden>
+        <div class="stage-x s-swiss">
+          <p class="cap">Il set completo</p>
+          <div class="gal" data-gallery></div>
+          <p class="cap">Prova una mano · tocca una carta rialzata</p>
+          <div class="game">
+            <div class="table"><button class="uc c-back" type="button" data-draw aria-label="Pesca una carta"></button><div class="pile"></div><p class="stat" aria-live="polite"></p></div>
+            <div class="hand"></div>
+          </div>
+        </div>
+      </section>
+
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ── Scocca generica: chip auto-costruiti dai pannelli, uno visibile alla volta ──
+(function(){
+  const panelsBox = document.getElementById('panels');
+  const panels = [...panelsBox.querySelectorAll('.dir-panel')];
+  const chips = document.getElementById('chips');
+
+  // Disegna la chrome (barra nome+mood, riga "perché") dentro ogni pannello dai data-*
+  panels.forEach(p=>{
+    const inner = p.innerHTML;
+    const role = p.dataset.role || '';
+    const tag = role ? `<span class="dir-tag" data-role="${role}">${role}</span>` : `<span class="dir-tag">Direzione</span>`;
+    p.innerHTML = `
+      <div class="dir-card">
+        <div class="dir-head">
+          <div>
+            <div class="dir-name">${p.dataset.name||'Direzione'}</div>
+            <div class="dir-mood">${p.dataset.mood||''}</div>
+          </div>${tag}
+        </div>
+        <div class="dir-body">${inner}</div>
+        ${p.dataset.why ? `<div class="dir-why">✶&nbsp;<span><b>Perché:</b> ${p.dataset.why}</span></div>` : ``}
+      </div>`;
+  });
+
+  function show(i){
+    panels.forEach((p,j)=>p.toggleAttribute('hidden', j!==i));
+    [...chips.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===i));
+  }
+
+  panels.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.setAttribute('role','tab');
+    b.setAttribute('aria-pressed', i===0 ? 'true':'false');
+    b.innerHTML = `<span class="swatch"></span>${p.dataset.name || ('Direzione '+(i+1))}`;
+    b.addEventListener('click', ()=>show(i));
+    chips.appendChild(b);
+  });
+
+  show(0);
+
+  // Esempio di interazione "viva ma leggera" con dato finto in localStorage.
+  // (La skill può riusare lo stesso pattern data-save nei pannelli reali.)
+  document.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-save]');
+    if(!btn) return;
+    const on = btn.dataset.on === '1';
+    btn.dataset.on = on ? '0':'1';
+    btn.textContent = on ? 'Salva' : 'Salvato ✓';
+    try{ localStorage.setItem('mockup-demo-saved', on ? '0':'1'); }catch(_){}
+  });
+})();
+</script>
+<script>
+// ── Carte UNO: mazzo finto, stesse regole di abbinamento (colore o valore, jolly sempre) ──
+(function(){
+  const COL = {red:'Rosso', yellow:'Giallo', green:'Verde', blue:'Blu', wild:'Jolly'};
+  const VNAME = {skip:'Stop', rev:'Inversione', '+2':'Pesca 2', wild:'Jolly', '+4':'Jolly +4'};
+  const COLORS = ['red','yellow','green','blue'];
+  const ICON = id => `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${id}"/></svg>`;
+
+  // contenuto del valore grande e dell'indice d'angolo
+  function bigOf(v){
+    if(v==='skip') return ICON('i-skip');
+    if(v==='rev') return ICON('i-rev');
+    if(v==='wild') return '';
+    return v;
+  }
+  function smallOf(v){
+    if(v==='skip') return ICON('i-skip');
+    if(v==='rev') return ICON('i-rev');
+    if(v==='wild') return ICON('i-quad');
+    return v;
+  }
+  function label(s){ return s.c==='wild' ? VNAME[s.v] : `${VNAME[s.v]||s.v} ${COL[s.c].toLowerCase()}`; }
+
+  function card(s, tag){
+    const e = document.createElement(tag||'div');
+    const isLong = typeof s.v==='string' && (s.v.length>1);
+    e.className = `uc c-${s.c}`;
+    e.innerHTML = `<span class="face"><span class="orn"></span><span class="big${isLong?' long':''}">${bigOf(s.v)}</span></span>`
+      + `<span class="idx tl">${smallOf(s.v)}</span><span class="idx br">${smallOf(s.v)}</span>`
+      + `<span class="nm">${s.c==='wild' ? 'Jolly' : COL[s.c]}</span>`;
+    e.setAttribute('aria-label', label(s));
+    if(tag==='button') e.type='button';
+    return e;
+  }
+
+  // dorso (pesca) con la scritta del tema
+  function fillBack(e){
+    e.innerHTML = `<span class="face"><span class="orn"></span><span class="big">CARDLY</span></span>`;
+  }
+
+  // mazzo da cui pescare (campione rappresentativo, non tutte le 108)
+  const POOL = [];
+  COLORS.forEach(c=>{ ['0','1','2','3','4','5','6','7','8','9','skip','rev','+2'].forEach(v=>POOL.push({c,v})); });
+  POOL.push({c:'wild',v:'wild'},{c:'wild',v:'+4'});
+  const pick = () => POOL[Math.floor(Math.random()*POOL.length)];
+
+  // galleria: tutti i tipi di carta
+  const GALLERY = [
+    {c:'red',v:'0'},{c:'yellow',v:'5'},{c:'green',v:'9'},{c:'blue',v:'skip'},{c:'red',v:'rev'},
+    {c:'yellow',v:'+2'},{c:'wild',v:'wild'},{c:'wild',v:'+4'}
+  ];
+
+  document.querySelectorAll('.stage-x').forEach(stage=>{
+    const gal = stage.querySelector('[data-gallery]');
+    GALLERY.forEach(s=>gal.appendChild(card(s)));
+    const back = document.createElement('div'); back.className='uc c-back'; fillBack(back);
+    back.setAttribute('aria-label','Dorso'); gal.appendChild(back);
+
+    const hand = stage.querySelector('.hand');
+    const pileBox = stage.querySelector('.pile');
+    const stat = stage.querySelector('.stat');
+    const deck = stage.querySelector('[data-draw]');
+    fillBack(deck);
+
+    // stato finto
+    let pile = {c:'red',v:'4'};
+    let active = 'red';
+    let cards = [
+      {c:'red',v:'9'},{c:'yellow',v:'4'},{c:'green',v:'4'},{c:'blue',v:'7'},
+      {c:'red',v:'skip'},{c:'wild',v:'wild'},{c:'yellow',v:'+2'}
+    ];
+
+    const ok = s => s.c==='wild' || s.c===active || (pile.c!=='wild' && s.v===pile.v);
+
+    function msg(t){ stat.textContent = `${t} · Colore attivo: ${COL[active]}`; }
+
+    function render(landed){
+      hand.innerHTML='';
+      hand.style.setProperty('--ov', cards.length<=7 ? '.4' : '.55'); // più carte, più sovrapposizione
+      cards.forEach((s,i)=>{
+        const b = card(s,'button');
+        if(ok(s)) b.classList.add('ok');
+        b.addEventListener('click',()=>play(i));
+        hand.appendChild(b);
+      });
+      pileBox.innerHTML='';
+      const p = card(pile);
+      if(landed) p.classList.add('land');
+      pileBox.appendChild(p);
+    }
+
+    function play(i){
+      const s = cards[i];
+      if(!ok(s)){ msg(`${label(s)}: non si può giocare`); return; }
+      cards.splice(i,1);
+      pile = s;
+      active = s.c==='wild' ? COLORS[Math.floor(Math.random()*4)] : s.c;
+      render(true);
+      msg(cards.length ? `Giocata: ${label(s)}` : 'Mano finita, hai vinto');
+    }
+
+    deck.addEventListener('click',()=>{
+      if(cards.length>=9){ msg('Mano piena'); return; }
+      cards.push(pick()); render(false);
+      msg('Hai pescato');
+    });
+
+    render(false);
+    msg('Tocca una carta rialzata');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  viewer-template.html · scocca del visualizzatore di direzioni (skill `mockup`)
+  ─────────────────────────────────────────────────────────────────────────────
+  SCOCCA FISSA, CONTENUTO VARIABILE.
+  La skill sostituisce SOLO il contenuto di <div id="panels"> con i 3/4 pannelli
+  reali. Ogni direzione è un <section class="dir-panel" data-name data-mood data-why>
+  che contiene SOLO il design di anteprima: la barra-titolo (nome+mood) e la riga
+  "perché" sono disegnate automaticamente dallo script qui sotto.
+  I chip in #chips sono generati automaticamente, uno per pannello.
+  NON modificare la scocca o lo script: cambia solo #panels (e <title>).
+-->
+<title>Tavolo UNO quattro direzioni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,700..900&family=Hanken+Grotesk:wght@800&family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14171e; --ink-2:#1b1f28; --ink-3:#232936;
+    --line:#323a4a; --bone:#e9e4d8; --bone-dim:#a39e93;
+    --brass:#e0a96d; --brass-deep:#b9824a; --ok:#7fb59a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #1d2230 0, transparent 60%), var(--ink);
+    color:var(--bone); font-family:"Hanken Grotesk",sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 18px 64px}
+
+  header.top{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}
+  .eyebrow{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--brass);font-weight:700}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(1.4rem,4vw,2rem);margin:.35rem 0 0;letter-spacing:-.015em}
+  .lead{color:var(--bone-dim);font-size:.9rem;margin:.45rem 0 0;max-width:52ch}
+
+  /* chip bar */
+  #chips{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
+  #chips button{
+    font:inherit;font-weight:600;font-size:.84rem;color:var(--bone-dim);
+    background:var(--ink-2);border:1px solid var(--line);border-radius:11px;
+    padding:10px 15px;min-height:44px;cursor:pointer;display:flex;align-items:center;gap:8px;
+    transition:color .15s ease, background .15s ease, border-color .15s ease;
+  }
+  #chips button:hover{color:var(--bone)}
+  #chips button[aria-pressed="true"]{border-color:var(--brass);color:var(--bone);background:var(--ink-3)}
+  #chips button .swatch{width:11px;height:11px;border-radius:4px;background:var(--brass);flex:none}
+
+  /* palco */
+  #stage{position:relative}
+  .dir-panel[hidden]{display:none}
+  .dir-panel{animation:fade .28s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .dir-card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  .dir-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .dir-name{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1.1rem;line-height:1.15}
+  .dir-mood{font-size:.74rem;color:var(--bone-dim);margin-top:2px}
+  .dir-tag{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;padding:5px 9px;border-radius:99px;white-space:nowrap;background:var(--ink-3);color:var(--bone-dim);border:1px solid var(--line)}
+  .dir-tag[data-role="Attuale"]{background:rgba(224,169,109,.16);color:var(--brass);border-color:var(--brass-deep)}
+  .dir-tag[data-role="Variante +"]{background:rgba(127,181,154,.14);color:var(--ok);border-color:#3f5a4f}
+  .dir-body{padding:20px 18px}
+  .dir-why{display:flex;gap:9px;align-items:flex-start;padding:13px 18px;border-top:1px solid var(--line);background:rgba(255,255,255,.015);font-size:.82rem;color:var(--bone-dim)}
+  .dir-why b{color:var(--bone);font-weight:600}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+
+  /* ───────── tavolo UNO: base ───────── */
+  :root{--red:#e4261f;--yellow:#f7c600;--green:#2f9e44;--blue:#1f6fd1}
+  .tbl{--hw:clamp(66px,10.5vw,118px);margin:-20px -18px;position:relative;display:grid;grid-template-rows:auto 1fr auto auto auto;
+       min-height:clamp(600px,80vh,690px);overflow:hidden;background:var(--tb);color:var(--tx);font-family:"Hanken Grotesk",sans-serif}
+  .tbl button{font:inherit}
+  .tbl .ib{color:var(--ib-fg)}
+  .tbl .uno{color:var(--unot)}
+  .uc{position:relative;display:block;flex:none;width:var(--w);aspect-ratio:2/3;container-type:size;border:0;padding:0;text-align:left;
+      border-radius:calc(var(--w) * .09);transition:transform .18s ease, filter .18s ease}
+  button.uc{cursor:pointer}
+  button.uc:focus-visible,.tbl button:focus-visible{outline:3px solid #fff;outline-offset:3px;z-index:20}
+  .uc.land{animation:land .24s ease}
+  @keyframes land{from{transform:scale(1.18) rotate(-4deg);opacity:.4}to{transform:none;opacity:1}}
+  .uc .face{position:absolute;overflow:hidden}
+  .uc .orn{position:absolute}
+  .uc .big{position:absolute;display:flex;align-items:center;justify-content:center;line-height:1}
+  .uc .big svg{display:block}
+  .uc .idx{position:absolute;display:flex;align-items:center;justify-content:center;line-height:1;z-index:3}
+  .uc .idx svg{width:1em;height:1em;display:block}
+  .uc .nm{display:none}
+  .c-red{--c:var(--red);--ct:#fff}
+  .c-yellow{--c:var(--yellow);--ct:#16181d}
+  .c-green{--c:var(--green);--ct:#fff}
+  .c-blue{--c:var(--blue);--ct:#fff}
+  .c-wild,.c-back{--c:#14161b;--ct:#fff}
+
+  /* chrome del tavolo */
+  .hud-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:10px 10px 0}
+  .hud-l,.hud-r{display:flex;gap:8px;align-items:center}
+  .ib{width:44px;height:44px;display:grid;place-items:center;padding:0;cursor:pointer;position:relative;
+      background:var(--ib-bg);color:var(--ib-fg);border:var(--ib-bw,2px) solid var(--ib-bd);border-radius:var(--ib-r,10px);box-shadow:var(--ib-sh,none)}
+  .ib svg{width:22px;height:22px}
+  .ib em{position:absolute;top:-7px;right:-7px;min-width:19px;height:19px;border-radius:10px;background:var(--red);color:#fff;font:700 11px/19px "Hanken Grotesk",sans-serif;font-style:normal;text-align:center;padding:0 4px}
+  .room{font:800 .78rem "Archivo",sans-serif;font-stretch:72%;letter-spacing:.07em;text-transform:uppercase;text-align:right;opacity:.92}
+  .opps{display:flex;gap:clamp(8px,3vw,30px);justify-content:center;flex:1;min-width:0}
+  .opp{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;padding:6px 10px 8px;border-radius:12px;min-width:84px}
+  .opp.on{outline:3px solid var(--acc);outline-offset:1px}
+  .opp .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:800 .9rem "Archivo",sans-serif;color:#fff;background:var(--avc,#555)}
+  .opp .nm2{font:800 .82rem "Archivo",sans-serif;font-stretch:80%;letter-spacing:.03em}
+  .opp .fan{display:flex}
+  .opp .fan .uc{--w:22px;border-radius:4px}
+  .opp .fan .uc + .uc{margin-left:-14px}
+  .opp .fan .idx,.opp .fan .big,.opp .fan .nm,.opp .fan .face::before,.opp .fan .face::after{display:none}
+  .opp .cnt{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;border-radius:11px;background:#111;color:#fff;font:800 .75rem/22px "Archivo",sans-serif;text-align:center;padding:0 5px}
+  .opp .tm{display:block;width:100%;height:4px;border-radius:2px;background:rgba(127,127,127,.35);overflow:hidden}
+  .opp .tm::after{content:"";display:block;height:100%;width:var(--p,0%);background:var(--acc)}
+  .mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:200px;padding:6px 10px}
+  .center{display:flex;align-items:center;gap:clamp(14px,4vw,40px)}
+  .center .uc{--w:clamp(64px,11vw,124px)}
+  .deckw{position:relative}
+  .badge{position:absolute;top:-10px;left:-10px;min-width:30px;height:30px;border-radius:15px;background:#111;color:#fff;border:2px solid #fff;font:800 .9rem/26px "Archivo",sans-serif;text-align:center;z-index:5;padding:0 4px}
+  .pile{position:relative;display:block;outline:4px solid var(--ring,transparent);outline-offset:4px;border-radius:calc(var(--pw,80px) * .1)}
+  .dir{width:34px;height:34px;opacity:.8}
+  .dir svg{width:100%;height:100%;display:block}
+  .stat{margin:0;min-height:2.6em;max-width:46ch;text-align:center;font-size:.86rem;line-height:1.35;font-weight:600}
+  .score{display:flex;justify-content:space-between;padding:0 14px 6px;font:800 clamp(.78rem,1.8vw,1rem) "Archivo",sans-serif;font-stretch:72%;text-transform:uppercase;letter-spacing:.05em}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 8px}
+  .uno{min-height:44px;padding:0 24px;border-radius:99px;font:900 1.05rem "Archivo",sans-serif;letter-spacing:.07em;cursor:pointer;
+       background:var(--unob);color:var(--unot);border:var(--ib-bw,2px) solid var(--ib-bd);box-shadow:var(--ib-sh,none);transition:transform .15s ease}
+  .uno[aria-pressed="true"]{transform:scale(1.07)}
+  .xp svg{transition:transform .2s ease}
+  .xp[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+  /* mano: chiusa = carte sovrapposte, aperta = carte intere su più righe */
+  .hand{--w:var(--hw);position:relative;display:flex;align-items:flex-start;padding:calc(var(--w) * .2) 10px 0;background:var(--hb);
+        overflow-x:auto;overflow-y:hidden;max-height:calc(var(--w) * 1.05);transition:max-height .28s ease;scrollbar-width:thin}
+  .hand > .uc:first-child{margin-left:auto}
+  .hand > .uc:last-child{margin-right:auto}
+  .hand > .uc + .uc{margin-left:calc(var(--w) * var(--ov,.45) * -1)}
+  .hand .uc.ok{transform:translateY(-14%)}
+  .hand .uc.ok:hover,.hand .uc.ok:focus-visible{transform:translateY(-24%);z-index:10}
+  .hand .uc:not(.ok){filter:brightness(.74) saturate(.8)}
+  .hand[data-open]{flex-wrap:wrap;gap:8px;justify-content:center;align-content:flex-start;max-height:min(58vh,440px);overflow-y:auto;overflow-x:hidden;padding-bottom:14px}
+  .hand[data-open] > .uc{margin:0!important}
+  .hand[data-open] .uc.ok{transform:translateY(-6%)}
+  @media (max-width:640px){.hud-top{flex-wrap:wrap}.opps{order:3;flex-basis:100%}.room{display:none}.hud-r{margin-left:auto}}
+
+  /* ═════ A · POP attuale ═════ */
+  .th-a{--tb:#121a30;--tx:#dfe5f5;--hb:rgba(0,0,0,.28);--ib-bg:#1c2748;--ib-fg:#fff;--ib-bd:#fff;--acc:#f7c600;--unob:#e4261f;--unot:#fff;--avc:#2c3a66}
+  .th-a .uc{background:#fff;box-shadow:0 2px 0 rgba(0,0,0,.35)}
+  .th-a .face{inset:6cqw;border-radius:7cqw;background:var(--c)}
+  .th-a .face::before{content:"";position:absolute;left:-16cqw;bottom:-16cqw;width:46cqw;height:46cqw;border-radius:50%;background:rgba(0,0,0,.2)}
+  .th-a .face::after{content:"";position:absolute;right:0;top:0;width:30cqw;height:30cqw;background:rgba(255,255,255,.2);clip-path:polygon(0 0,100% 0,100% 100%)}
+  .th-a .orn{left:50%;top:50%;width:86%;height:60%;background:#fff;border-radius:50%;transform:translate(-50%,-50%) rotate(-28deg)}
+  .th-a .c-wild .orn{background:conic-gradient(from 0deg,var(--blue) 0 25%,var(--green) 0 50%,var(--yellow) 0 75%,var(--red) 0);border:2.4cqw solid #fff;width:70%;height:50%}
+  .th-a .big{inset:0;font-family:"Archivo",sans-serif;font-weight:900;font-size:56cqw;color:var(--c);letter-spacing:-.04em;z-index:2}
+  .th-a .big.long{font-size:38cqw}
+  .th-a .big svg{width:42cqw;height:42cqw}
+  .th-a .c-yellow .big{color:#16181d}
+  .th-a .c-wild .big{color:#fff;-webkit-text-stroke:2.4cqw #14161b;paint-order:stroke fill}
+  .th-a .idx{font-family:"Archivo",sans-serif;font-weight:800;font-size:14cqw;color:var(--ct)}
+  .th-a .idx.tl{left:11cqw;top:9cqw}
+  .th-a .idx.br{right:11cqw;bottom:9cqw;transform:rotate(180deg)}
+  .th-a .c-back .orn{background:var(--red);width:84%;height:56%}
+  .th-a .c-back .big{font-size:15cqw;color:var(--yellow);letter-spacing:.04em;transform:rotate(-28deg);-webkit-text-stroke:1.6cqw #14161b;paint-order:stroke fill}
+
+  /* ═════ B · POP + (indici grandi, forma pulita) ═════ */
+  .th-b{--tb:#0f1736;--tx:#eef1fb;--hb:rgba(0,0,0,.32);--ib-bg:#fff;--ib-fg:#0f1736;--ib-bd:#fff;--ib-r:12px;--acc:#f7c600;--unob:#f7c600;--unot:#16181d;--avc:#e4261f;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Ccircle cx='30' cy='30' r='12' fill='%23fff' fill-opacity='.06'/%3E%3Cpath d='M120 120V70a50 50 0 0 0-50 50z' fill='%23fff' fill-opacity='.05'/%3E%3Cpath d='M0 0h40L0 40z' fill='%23fff' fill-opacity='.04'/%3E%3C/svg%3E")}
+  .th-b .uc{background:#fff;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+  .th-b .face{inset:5cqw;border-radius:8cqw;background:var(--c)}
+  .th-b .face::before{content:"";position:absolute;right:-20cqw;bottom:-20cqw;width:62cqw;height:62cqw;border-radius:50%;background:rgba(0,0,0,.16)}
+  .th-b .face::after{content:"";position:absolute;right:8cqw;top:9cqw;width:11cqw;height:11cqw;border-radius:50%;background:rgba(255,255,255,.3)}
+  .th-b .orn{left:50%;top:56%;width:92%;height:62%;background:#fff;border-radius:50%;transform:translate(-50%,-50%) rotate(-28deg)}
+  .th-b .c-wild .orn{background:conic-gradient(from 0deg,var(--blue) 0 25%,var(--green) 0 50%,var(--yellow) 0 75%,var(--red) 0);border:2.6cqw solid #fff;width:74%;height:54%}
+  .th-b .big{left:0;right:0;top:12cqw;bottom:0;font-family:"Archivo",sans-serif;font-weight:900;font-size:60cqw;color:var(--c);letter-spacing:-.05em;z-index:2}
+  .th-b .big.long{font-size:42cqw}
+  .th-b .big svg{width:44cqw;height:44cqw}
+  .th-b .c-yellow .big{color:#16181d}
+  .th-b .c-wild .big{color:#fff;-webkit-text-stroke:2.6cqw #14161b;paint-order:stroke fill}
+  .th-b .idx{font-family:"Archivo",sans-serif;font-weight:900;font-stretch:68%;font-size:27cqw;color:var(--ct);letter-spacing:-.01em}
+  .th-b .idx.tl{left:9cqw;top:5cqw}
+  .th-b .idx.br{right:9cqw;bottom:5cqw;transform:rotate(180deg)}
+  .th-b .idx svg{width:.85em;height:.85em}
+  .th-b .c-back .orn{background:var(--red);width:86%;height:58%}
+  .th-b .c-back .big{font-size:16cqw;color:var(--yellow);letter-spacing:.04em;transform:rotate(-28deg);-webkit-text-stroke:1.8cqw #14161b;paint-order:stroke fill;top:0}
+
+  /* ═════ C · BRUTALISTA A STICKER ═════ */
+  .th-c{--tb:#cfe3d4;--tx:#111;--hb:#a9c9b6;--ib-bg:#fff;--ib-fg:#111;--ib-bd:#111;--ib-bw:3px;--ib-r:6px;--ib-sh:3px 3px 0 #111;--acc:#e4261f;--unob:#f7c600;--unot:#111;--avc:#111;
+        background-image:linear-gradient(rgba(0,0,0,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.1) 1px,transparent 1px);background-size:36px 36px;font-family:"Bricolage Grotesque",sans-serif}
+  .th-c .score,.th-c .stat{font-weight:700}
+  .th-c .hand{border-top:3px solid #111}
+  .th-c .c-wild .idx.tl{display:none}
+  .th-c .opp .cnt,.th-c .badge{border:2px solid #111;background:#fff;color:#111}
+  .th-c .uc{background:#fff9ea;border:3px solid #111;border-radius:calc(var(--w) * .07)}
+  .th-c .face{inset:0}
+  .th-c .orn{left:0;right:0;top:0;height:60%;background:var(--c);border-bottom:3px solid #111}
+  .th-c .c-wild .orn{background:linear-gradient(90deg,var(--red) 0 25%,var(--blue) 0 50%,var(--green) 0 75%,var(--yellow) 0)}
+  .th-c .big{right:7cqw;bottom:3cqw;justify-content:flex-end;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:64cqw;color:#111;letter-spacing:-.06em}
+  .th-c .big.long{font-size:42cqw}
+  .th-c .big svg{width:38cqw;height:38cqw;margin-bottom:4cqw}
+  .th-c .idx.tl{left:6cqw;top:4cqw;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:22cqw;color:var(--ct);letter-spacing:-.03em;background:none}
+  .th-c .c-wild .idx.tl{color:#111}
+  .th-c .idx.br{display:none}
+  .th-c .nm{display:block;position:absolute;left:7cqw;bottom:6cqw;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:8.5cqw;letter-spacing:.14em;text-transform:uppercase;color:#111;z-index:3}
+  .th-c .c-back{background:#111}
+  .th-c .c-back .orn{background:var(--red);border-bottom-color:#fff9ea}
+  .th-c .c-back .big{font-size:14cqw;letter-spacing:.06em;color:#fff9ea;right:auto;left:7cqw;bottom:8cqw}
+
+  /* ═════ D · NOTTURNO A FILO ═════ */
+  .th-d{--tb:#0b0d12;--tx:#e7eaf2;--hb:#07080c;--ib-bg:#171a22;--ib-fg:#e7eaf2;--ib-bd:#2d3342;--ib-r:12px;--acc:#ffd23a;--unob:#e7eaf2;--unot:#0b0d12;--avc:#2d3342;
+        background-image:radial-gradient(900px 420px at 50% 40%,#161a25,transparent 70%);font-family:"Hanken Grotesk",sans-serif}
+  .th-d .c-red{--c:#ff5a4f;--ct:#ff5a4f}
+  .th-d .c-yellow{--c:#ffd23a;--ct:#ffd23a}
+  .th-d .c-green{--c:#4cd07a;--ct:#4cd07a}
+  .th-d .c-blue{--c:#5aa2ff;--ct:#5aa2ff}
+  .th-d .c-wild,.th-d .c-back{--c:#e7eaf2;--ct:#e7eaf2}
+  .th-d .opp .cnt,.th-d .badge{background:#e7eaf2;color:#0b0d12;border-color:#0b0d12}
+  .th-d .uc{background:#171a22;box-shadow:0 0 0 1px #000}
+  .th-d .face{inset:4cqw;border:1.3cqw solid var(--c);border-radius:6cqw}
+  .th-d .orn{left:50%;top:54%;width:66cqw;height:66cqw;border-radius:50%;transform:translate(-50%,-50%);border:.9cqw solid var(--c);opacity:.28}
+  .th-d .c-wild .orn{border:0;opacity:1;width:56cqw;height:56cqw;background:conic-gradient(from 0deg,#5aa2ff 0 25%,#4cd07a 0 50%,#ffd23a 0 75%,#ff5a4f 0);-webkit-mask:radial-gradient(circle,transparent 58%,#000 60%);mask:radial-gradient(circle,transparent 58%,#000 60%)}
+  .th-d .big{left:0;right:0;top:10cqw;bottom:0;font-family:"Hanken Grotesk",sans-serif;font-weight:800;font-size:58cqw;color:var(--c);letter-spacing:-.05em;z-index:2}
+  .th-d .big.long{font-size:38cqw}
+  .th-d .big svg{width:40cqw;height:40cqw}
+  .th-d .idx{font-family:"Hanken Grotesk",sans-serif;font-weight:800;font-size:23cqw;color:var(--ct);letter-spacing:-.05em}
+  .th-d .idx.tl{left:9cqw;top:6cqw}
+  .th-d .idx.br{right:9cqw;bottom:6cqw;transform:rotate(180deg)}
+  .th-d .c-back .face{border-style:dashed;opacity:.8}
+  .th-d .c-back .orn{opacity:.5}
+  .th-d .c-back .big{font-size:11.5cqw;letter-spacing:.14em;color:#e7eaf2;top:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Direzioni a confronto</div>
+    <h1 id="mockTitle">Tavolo UNO: Pop geometrico migliorato</h1>
+    <p class="lead">Tocca un nome in alto per cambiare direzione. Ogni tile mostra l'estetica, un'interazione viva e il <b>perché</b>.</p>
+  </header>
+
+  <nav id="chips" role="tablist" aria-label="Direzioni"></nav>
+
+  <main id="stage">
+    <div id="panels">
+
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="i-skip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="3"/><path d="M6.2 17.8L17.8 6.2" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+        <symbol id="i-rev" viewBox="0 0 24 24"><path d="M3.5 8.5h13M12.5 4.5l4 4-4 4M20.5 15.5h-13M11.5 11.5l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-quad" viewBox="0 0 24 24"><path d="M12 12H2A10 10 0 0 1 12 2z" fill="#e4261f"/><path d="M12 12V2a10 10 0 0 1 10 10z" fill="#1f6fd1"/><path d="M12 12h10a10 10 0 0 1-10 10z" fill="#2f9e44"/><path d="M12 12v10A10 10 0 0 1 2 12z" fill="#f7c600"/></symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+        <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9.5L5 20v-4H4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+        <symbol id="i-sort" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.6" fill="#e4261f"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.6" fill="#f7c600"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.6" fill="#2f9e44"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.6" fill="#1f6fd1"/></symbol>
+        <symbol id="i-chev" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-cw" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      </svg>
+
+      <section class="dir-panel" data-name="Pop · attuale" data-mood="Bauhaus · il punto di partenza" data-why="La grafica di prima dentro il tavolo vero: si vede dove soffre quando le carte si sovrappongono." data-role="Attuale">
+        <div class="tbl th-a"></div>
+      </section>
+      <section class="dir-panel" data-name="Pop + indici grandi" data-mood="Bauhaus · Memphis leggero" data-why="Indici condensati e ingranditi, una sola forma per carta: anche la mano chiusa si legge a colpo d'occhio." data-role="Variante +" hidden>
+        <div class="tbl th-b"></div>
+      </section>
+      <section class="dir-panel" data-name="Brutalista a sticker" data-mood="neo-brutalismo · alla Gumroad" data-why="Contorno nero e pannello colore: la carta si riconosce anche ridotta a un'etichetta." data-role="" hidden>
+        <div class="tbl th-c"></div>
+      </section>
+      <section class="dir-panel" data-name="Notturno a filo" data-mood="dark minimal · alla Linear" data-why="Il colore è solo filo e numero su fondo scuro: la mano chiusa diventa una fila di indici luminosi." data-role="" hidden>
+        <div class="tbl th-d"></div>
+      </section>
+
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ── Scocca generica: chip auto-costruiti dai pannelli, uno visibile alla volta ──
+(function(){
+  const panelsBox = document.getElementById('panels');
+  const panels = [...panelsBox.querySelectorAll('.dir-panel')];
+  const chips = document.getElementById('chips');
+
+  // Disegna la chrome (barra nome+mood, riga "perché") dentro ogni pannello dai data-*
+  panels.forEach(p=>{
+    const inner = p.innerHTML;
+    const role = p.dataset.role || '';
+    const tag = role ? `<span class="dir-tag" data-role="${role}">${role}</span>` : `<span class="dir-tag">Direzione</span>`;
+    p.innerHTML = `
+      <div class="dir-card">
+        <div class="dir-head">
+          <div>
+            <div class="dir-name">${p.dataset.name||'Direzione'}</div>
+            <div class="dir-mood">${p.dataset.mood||''}</div>
+          </div>${tag}
+        </div>
+        <div class="dir-body">${inner}</div>
+        ${p.dataset.why ? `<div class="dir-why">✶&nbsp;<span><b>Perché:</b> ${p.dataset.why}</span></div>` : ``}
+      </div>`;
+  });
+
+  function show(i){
+    panels.forEach((p,j)=>p.toggleAttribute('hidden', j!==i));
+    [...chips.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===i));
+  }
+
+  panels.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.setAttribute('role','tab');
+    b.setAttribute('aria-pressed', i===0 ? 'true':'false');
+    b.innerHTML = `<span class="swatch"></span>${p.dataset.name || ('Direzione '+(i+1))}`;
+    b.addEventListener('click', ()=>show(i));
+    chips.appendChild(b);
+  });
+
+  show(0);
+
+  // Esempio di interazione "viva ma leggera" con dato finto in localStorage.
+  // (La skill può riusare lo stesso pattern data-save nei pannelli reali.)
+  document.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-save]');
+    if(!btn) return;
+    const on = btn.dataset.on === '1';
+    btn.dataset.on = on ? '0':'1';
+    btn.textContent = on ? 'Salva' : 'Salvato ✓';
+    try{ localStorage.setItem('mockup-demo-saved', on ? '0':'1'); }catch(_){}
+  });
+})();
+</script>
+<script>
+// ── Tavolo UNO: mano chiusa/aperta, gioca una carta, pesca, ordina. Dati finti. ──
+(function(){
+  const COL = {red:'Rosso', yellow:'Giallo', green:'Verde', blue:'Blu', wild:'Jolly'};
+  const HEX = {red:'#e4261f', yellow:'#f7c600', green:'#2f9e44', blue:'#1f6fd1'};
+  const VNAME = {skip:'Stop', rev:'Inversione', '+2':'Pesca 2', wild:'Jolly', '+4':'Jolly +4'};
+  const COLORS = ['red','yellow','green','blue'];
+  const ORDER = {red:0, yellow:1, green:2, blue:3, wild:4};
+  const VORD = v => ({skip:10, rev:11, '+2':12, wild:13, '+4':14}[v] ?? Number(v));
+  const ICON = id => `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${id}"/></svg>`;
+  const bigOf = v => v==='skip' ? ICON('i-skip') : v==='rev' ? ICON('i-rev') : v==='wild' ? '' : v;
+  const smallOf = v => v==='skip' ? ICON('i-skip') : v==='rev' ? ICON('i-rev') : v==='wild' ? ICON('i-quad') : v;
+  const label = s => s.c==='wild' ? VNAME[s.v] : `${VNAME[s.v]||s.v} ${COL[s.c].toLowerCase()}`;
+
+  function card(s, tag){
+    const e = document.createElement(tag||'div');
+    const isLong = typeof s.v==='string' && s.v.length>1;
+    e.className = `uc c-${s.c}`;
+    e.innerHTML = `<span class="face"><span class="orn"></span><span class="big${isLong?' long':''}">${bigOf(s.v)}</span></span>`
+      + `<span class="idx tl">${smallOf(s.v)}</span><span class="idx br">${smallOf(s.v)}</span>`
+      + `<span class="nm">${s.c==='wild' ? 'Jolly' : COL[s.c]}</span>`;
+    e.setAttribute('aria-label', label(s));
+    if(tag==='button') e.type='button';
+    return e;
+  }
+  function back(tag){
+    const e = document.createElement(tag||'div');
+    e.className = 'uc c-back';
+    e.innerHTML = `<span class="face"><span class="orn"></span><span class="big">CARDLY</span></span>`;
+    if(tag==='button') e.type='button';
+    return e;
+  }
+
+  const POOL = [];
+  COLORS.forEach(c=>['0','1','2','3','4','5','6','7','8','9','skip','rev','+2'].forEach(v=>POOL.push({c,v})));
+  POOL.push({c:'wild',v:'wild'},{c:'wild',v:'+4'});
+  const pick = () => POOL[Math.floor(Math.random()*POOL.length)];
+
+  const OPPS = [['Zarey','Z',6,true,70],['Luca','L',4,false,0],['Mari','M',9,false,0]];
+  const AVC = ['#e4261f','#1f6fd1','#2f9e44'];
+
+  const SCENE = () => `
+    <div class="hud-top">
+      <div class="hud-l">
+        <button class="ib" type="button" aria-label="Impostazioni">${ICON('i-gear')}</button>
+        <button class="ib" type="button" aria-label="Schermo intero">${ICON('i-full')}</button>
+      </div>
+      <div class="opps">${OPPS.map((o,i)=>`
+        <div class="opp${o[3]?' on':''}" style="--avc:${AVC[i]};--p:${o[4]}%">
+          <span class="av">${o[1]}</span><span class="nm2">${o[0]}</span>
+          <span class="fan" data-fan="${Math.min(o[2],6)}"></span><b class="cnt">${o[2]}</b><i class="tm"></i>
+        </div>`).join('')}</div>
+      <div class="hud-r">
+        <span class="room">Vittoria 500 · Round 1</span>
+        <button class="ib" type="button" aria-label="Chat, 1 messaggio">${ICON('i-chat')}<em>1</em></button>
+      </div>
+    </div>
+    <div class="mid">
+      <div class="center">
+        <div class="deckw"><span data-deck></span><b class="badge">23</b></div>
+        <div class="pile"></div>
+        <span class="dir" title="Senso orario">${ICON('i-cw')}</span>
+      </div>
+      <p class="stat" aria-live="polite"></p>
+    </div>
+    <div class="score"><span>Tu 730</span><span>Avv 335</span></div>
+    <div class="bar">
+      <button class="ib sort" type="button" aria-label="Ordina per colore">${ICON('i-sort')}</button>
+      <button class="uno" type="button" aria-pressed="false">UNO!</button>
+      <button class="ib xp" type="button" aria-expanded="false" aria-label="Espandi la mano">${ICON('i-chev')}</button>
+    </div>
+    <div class="hand"></div>`;
+
+  document.querySelectorAll('.tbl').forEach(tbl=>{
+    tbl.innerHTML = SCENE();
+    const $ = s => tbl.querySelector(s);
+    const hand=$('.hand'), pileBox=$('.pile'), stat=$('.stat'), badge=$('.badge');
+    const xp=$('.xp'), uno=$('.uno');
+
+    tbl.querySelectorAll('[data-fan]').forEach(f=>{ for(let i=0;i<+f.dataset.fan;i++) f.appendChild(back()); });
+    const deck = back('button'); deck.setAttribute('aria-label','Pesca una carta');
+    $('[data-deck]').replaceWith(deck);
+
+    let pile = {c:'red',v:'4'}, active = 'red', drawLeft = 23;
+    let cards = [
+      {c:'red',v:'9'},{c:'yellow',v:'4'},{c:'green',v:'4'},{c:'blue',v:'7'},{c:'red',v:'skip'},{c:'wild',v:'wild'},
+      {c:'yellow',v:'+2'},{c:'green',v:'rev'},{c:'blue',v:'2'},{c:'red',v:'0'},{c:'wild',v:'+4'}
+    ];
+    const ok = s => s.c==='wild' || s.c===active || (pile.c!=='wild' && s.v===pile.v);
+    const msg = t => { stat.textContent = `${t} · Colore attivo: ${COL[active]}`; };
+
+    // sovrapposizione: ogni carta lascia in vista almeno 44px (bersaglio toccabile), la fila scorre se serve
+    function fit(){
+      const pc = pileBox.querySelector('.uc');
+      if(pc && pc.getBoundingClientRect().width) pileBox.style.setProperty('--pw', pc.getBoundingClientRect().width+'px');
+      if(hand.hasAttribute('data-open') || cards.length<2) return;
+      const w = hand.querySelector('.uc').getBoundingClientRect().width;
+      if(!w) return; // pannello nascosto: si ricalcola quando torna visibile
+      const room = hand.clientWidth - 20;
+      const step = Math.min(Math.max(w*.6, 44), Math.max(44, (room-w)/(cards.length-1)));
+      hand.style.setProperty('--ov', (1 - step/w).toFixed(3));
+    }
+
+    function render(landed){
+      hand.innerHTML='';
+      cards.forEach((s,i)=>{
+        const b = card(s,'button');
+        if(ok(s)) b.classList.add('ok');
+        b.addEventListener('click',()=>play(i));
+        hand.appendChild(b);
+      });
+      pileBox.innerHTML='';
+      const p = card(pile);
+      if(landed) p.classList.add('land');
+      pileBox.appendChild(p);
+      pileBox.style.setProperty('--ring', HEX[active]);
+      pileBox.style.setProperty('--pw', p.getBoundingClientRect().width+'px');
+      badge.textContent = drawLeft;
+      fit();
+    }
+
+    function play(i){
+      const s = cards[i];
+      if(!ok(s)){ msg(`${label(s)}: non si può giocare`); return; }
+      cards.splice(i,1);
+      pile = s;
+      active = s.c==='wild' ? COLORS[Math.floor(Math.random()*4)] : s.c;
+      render(true);
+      msg(cards.length===1 ? 'Ultima carta: premi UNO!' : cards.length ? `Giocata: ${label(s)}` : 'Mano finita, hai vinto');
+    }
+
+    deck.addEventListener('click',()=>{
+      if(cards.length>=14){ msg('Mano piena'); return; }
+      cards.push(pick()); drawLeft = Math.max(0, drawLeft-1); render(false); msg('Hai pescato');
+    });
+    $('.sort').addEventListener('click',()=>{
+      cards.sort((a,b)=>ORDER[a.c]-ORDER[b.c] || VORD(a.v)-VORD(b.v)); render(false); msg('Mano ordinata per colore');
+    });
+    uno.addEventListener('click',()=>{
+      const on = uno.getAttribute('aria-pressed')==='true';
+      uno.setAttribute('aria-pressed', on?'false':'true');
+      msg(on ? 'UNO annullato' : cards.length<=2 ? 'UNO! detto' : `Troppo presto: hai ancora ${cards.length} carte`);
+    });
+    xp.addEventListener('click',()=>{
+      const open = !hand.hasAttribute('data-open');
+      hand.toggleAttribute('data-open', open);
+      xp.setAttribute('aria-expanded', open);
+      xp.setAttribute('aria-label', open ? 'Comprimi la mano' : 'Espandi la mano');
+      if(!open) fit();
+    });
+
+    tbl._fit = fit;
+    render(false);
+    msg('Tocca una carta rialzata');
+  });
+  addEventListener('resize',()=>document.querySelectorAll('.tbl').forEach(t=>t._fit&&t._fit()));
+  // il pannello nascosto ha larghezza 0: ricalcola quando cambia direzione
+  document.addEventListener('click',e=>{ if(e.target.closest('#chips')) setTimeout(()=>document.querySelectorAll('.tbl').forEach(t=>t._fit&&t._fit()),30); });
+})();
+</script>
+</body>
+</html>

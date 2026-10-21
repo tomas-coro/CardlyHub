@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  viewer-template.html · scocca del visualizzatore di direzioni (skill `mockup`)
+  ─────────────────────────────────────────────────────────────────────────────
+  SCOCCA FISSA, CONTENUTO VARIABILE.
+  La skill sostituisce SOLO il contenuto di <div id="panels"> con i 3/4 pannelli
+  reali. Ogni direzione è un <section class="dir-panel" data-name data-mood data-why>
+  che contiene SOLO il design di anteprima: la barra-titolo (nome+mood) e la riga
+  "perché" sono disegnate automaticamente dallo script qui sotto.
+  I chip in #chips sono generati automaticamente, uno per pannello.
+  NON modificare la scocca o lo script: cambia solo #panels (e <title>).
+-->
+<title>Tavoli casinò</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,700..900&family=Hanken+Grotesk:wght@800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14171e; --ink-2:#1b1f28; --ink-3:#232936;
+    --line:#323a4a; --bone:#e9e4d8; --bone-dim:#a39e93;
+    --brass:#e0a96d; --brass-deep:#b9824a; --ok:#7fb59a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #1d2230 0, transparent 60%), var(--ink);
+    color:var(--bone); font-family:"Hanken Grotesk",sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 18px 64px}
+
+  header.top{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}
+  .eyebrow{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--brass);font-weight:700}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(1.4rem,4vw,2rem);margin:.35rem 0 0;letter-spacing:-.015em}
+  .lead{color:var(--bone-dim);font-size:.9rem;margin:.45rem 0 0;max-width:52ch}
+
+  /* chip bar */
+  #chips{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
+  #chips button{
+    font:inherit;font-weight:600;font-size:.84rem;color:var(--bone-dim);
+    background:var(--ink-2);border:1px solid var(--line);border-radius:11px;
+    padding:10px 15px;min-height:44px;cursor:pointer;display:flex;align-items:center;gap:8px;
+    transition:color .15s ease, background .15s ease, border-color .15s ease;
+  }
+  #chips button:hover{color:var(--bone)}
+  #chips button[aria-pressed="true"]{border-color:var(--brass);color:var(--bone);background:var(--ink-3)}
+  #chips button .swatch{width:11px;height:11px;border-radius:4px;background:var(--brass);flex:none}
+
+  /* palco */
+  #stage{position:relative}
+  .dir-panel[hidden]{display:none}
+  .dir-panel{animation:fade .28s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .dir-card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  .dir-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .dir-name{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1.1rem;line-height:1.15}
+  .dir-mood{font-size:.74rem;color:var(--bone-dim);margin-top:2px}
+  .dir-tag{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;padding:5px 9px;border-radius:99px;white-space:nowrap;background:var(--ink-3);color:var(--bone-dim);border:1px solid var(--line)}
+  .dir-tag[data-role="Attuale"]{background:rgba(224,169,109,.16);color:var(--brass);border-color:var(--brass-deep)}
+  .dir-tag[data-role="Variante +"]{background:rgba(127,181,154,.14);color:var(--ok);border-color:#3f5a4f}
+  .dir-body{padding:20px 18px}
+  .dir-why{display:flex;gap:9px;align-items:flex-start;padding:13px 18px;border-top:1px solid var(--line);background:rgba(255,255,255,.015);font-size:.82rem;color:var(--bone-dim)}
+  .dir-why b{color:var(--bone);font-weight:600}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+
+  :root{--red:#e4261f;--yellow:#f7c600;--green:#2f9e44;--blue:#1f6fd1}
+  .tbl{--hw:clamp(66px,10.5vw,118px);margin:-20px -18px;position:relative;display:grid;grid-template-rows:auto 1fr auto auto auto;
+       min-height:clamp(600px,80vh,690px);overflow:hidden;background:var(--tb);color:var(--tx);font-family:"Hanken Grotesk",sans-serif}
+  .tbl button{font:inherit}
+  .tbl .ib{color:var(--ib-fg)}
+  .tbl .uno{color:var(--unot)}
+  .uc{position:relative;display:block;flex:none;width:var(--w);aspect-ratio:2/3;container-type:size;border:0;padding:0;text-align:left;
+      border-radius:calc(var(--w) * .09);transition:transform .18s ease, filter .18s ease}
+  button.uc{cursor:pointer}
+  button.uc:focus-visible,.tbl button:focus-visible{outline:3px solid #fff;outline-offset:3px;z-index:20}
+  .uc.land{animation:land .24s ease}
+  @keyframes land{from{transform:scale(1.18) rotate(-4deg);opacity:.4}to{transform:none;opacity:1}}
+  .uc .face{position:absolute;overflow:hidden}
+  .uc .orn{position:absolute}
+  .uc .big{position:absolute;display:flex;align-items:center;justify-content:center;line-height:1}
+  .uc .big svg{display:block}
+  .uc .idx{position:absolute;display:flex;align-items:center;justify-content:center;line-height:1;z-index:3}
+  .uc .idx svg{width:1em;height:1em;display:block}
+  .uc .nm{display:none}
+  .c-red{--c:var(--red);--ct:#fff}
+  .c-yellow{--c:var(--yellow);--ct:#16181d}
+  .c-green{--c:var(--green);--ct:#fff}
+  .c-blue{--c:var(--blue);--ct:#fff}
+  .c-wild,.c-back{--c:#14161b;--ct:#fff}
+
+  /* chrome del tavolo */
+  .hud-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:10px 10px 0}
+  .hud-l,.hud-r{display:flex;gap:8px;align-items:center}
+  .ib{width:44px;height:44px;display:grid;place-items:center;padding:0;cursor:pointer;position:relative;
+      background:var(--ib-bg);color:var(--ib-fg);border:var(--ib-bw,2px) solid var(--ib-bd);border-radius:var(--ib-r,10px);box-shadow:var(--ib-sh,none)}
+  .ib svg{width:22px;height:22px}
+  .ib em{position:absolute;top:-7px;right:-7px;min-width:19px;height:19px;border-radius:10px;background:var(--red);color:#fff;font:700 11px/19px "Hanken Grotesk",sans-serif;font-style:normal;text-align:center;padding:0 4px}
+  .room{font:800 .78rem "Archivo",sans-serif;font-stretch:72%;letter-spacing:.07em;text-transform:uppercase;text-align:right;opacity:.92}
+  .opps{display:flex;gap:clamp(8px,3vw,30px);justify-content:center;flex:1;min-width:0}
+  .opp{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;padding:6px 10px 8px;border-radius:12px;min-width:84px}
+  .opp.on{outline:3px solid var(--acc);outline-offset:1px}
+  .opp .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:800 .9rem "Archivo",sans-serif;color:#fff;background:var(--avc,#555)}
+  .opp .nm2{font:800 .82rem "Archivo",sans-serif;font-stretch:80%;letter-spacing:.03em}
+  .opp .fan{display:flex}
+  .opp .fan .uc{--w:22px;border-radius:4px}
+  .opp .fan .uc + .uc{margin-left:-14px}
+  .opp .fan .idx,.opp .fan .big,.opp .fan .nm,.opp .fan .face::before,.opp .fan .face::after{display:none}
+  .opp .cnt{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;border-radius:11px;background:#111;color:#fff;font:800 .75rem/22px "Archivo",sans-serif;text-align:center;padding:0 5px}
+  .opp .tm{display:block;width:100%;height:4px;border-radius:2px;background:rgba(127,127,127,.35);overflow:hidden}
+  .opp .tm::after{content:"";display:block;height:100%;width:var(--p,0%);background:var(--acc)}
+  .mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:200px;padding:6px 10px}
+  .center{display:flex;align-items:center;gap:clamp(14px,4vw,40px)}
+  .center .uc{--w:clamp(64px,11vw,124px)}
+  .deckw{position:relative}
+  .badge{position:absolute;top:-10px;left:-10px;min-width:30px;height:30px;border-radius:15px;background:#111;color:#fff;border:2px solid #fff;font:800 .9rem/26px "Archivo",sans-serif;text-align:center;z-index:5;padding:0 4px}
+  .pile{position:relative;display:block;outline:4px solid var(--ring,transparent);outline-offset:4px;border-radius:calc(var(--pw,80px) * .1)}
+  .dir{width:34px;height:34px;opacity:.8}
+  .dir svg{width:100%;height:100%;display:block}
+  .stat{margin:0;min-height:2.6em;max-width:46ch;text-align:center;font-size:.86rem;line-height:1.35;font-weight:600}
+  .score{display:flex;justify-content:space-between;padding:0 14px 6px;font:800 clamp(.78rem,1.8vw,1rem) "Archivo",sans-serif;font-stretch:72%;text-transform:uppercase;letter-spacing:.05em}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 8px}
+  .uno{min-height:44px;padding:0 24px;border-radius:99px;font:900 1.05rem "Archivo",sans-serif;letter-spacing:.07em;cursor:pointer;
+       background:var(--unob);color:var(--unot);border:var(--ib-bw,2px) solid var(--ib-bd);box-shadow:var(--ib-sh,none);transition:transform .15s ease}
+  .uno[aria-pressed="true"]{transform:scale(1.07)}
+  .xp svg{transition:transform .2s ease}
+  .xp[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+  /* mano: chiusa = carte sovrapposte, aperta = carte intere su più righe */
+  .hand{--w:var(--hw);position:relative;display:flex;align-items:flex-start;padding:calc(var(--w) * .2) 10px 0;background:var(--hb);
+        overflow-x:auto;overflow-y:hidden;max-height:calc(var(--w) * 1.05);transition:max-height .28s ease;scrollbar-width:thin}
+  .hand > .uc:first-child{margin-left:auto}
+  .hand > .uc:last-child{margin-right:auto}
+  .hand > .uc + .uc{margin-left:calc(var(--w) * var(--ov,.45) * -1)}
+  .hand .uc.ok{transform:translateY(-14%)}
+  .hand .uc.ok:hover,.hand .uc.ok:focus-visible{transform:translateY(-24%);z-index:10}
+  .hand .uc:not(.ok){filter:brightness(.74) saturate(.8)}
+  .hand[data-open]{flex-wrap:wrap;gap:8px;justify-content:center;align-content:flex-start;max-height:min(58vh,440px);overflow-y:auto;overflow-x:hidden;padding-bottom:14px}
+  .hand[data-open] > .uc{margin:0!important}
+  .hand[data-open] .uc.ok{transform:translateY(-6%)}
+  @media (max-width:640px){.hud-top{flex-wrap:wrap}.opps{order:3;flex-basis:100%}.room{display:none}.hud-r{margin-left:auto}}
+
+  /* ═════ B · POP + (indici grandi, forma pulita) ═════ */
+  .th-b{--tb:#0f1736;--tx:#eef1fb;--hb:rgba(0,0,0,.32);--ib-bg:#fff;--ib-fg:#0f1736;--ib-bd:#fff;--ib-r:12px;--acc:#f7c600;--unob:#f7c600;--unot:#16181d;--avc:#e4261f;
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Ccircle cx='30' cy='30' r='12' fill='%23fff' fill-opacity='.06'/%3E%3Cpath d='M120 120V70a50 50 0 0 0-50 50z' fill='%23fff' fill-opacity='.05'/%3E%3Cpath d='M0 0h40L0 40z' fill='%23fff' fill-opacity='.04'/%3E%3C/svg%3E")}
+  .th-b .uc{background:#fff;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+  .th-b .face{inset:5cqw;border-radius:8cqw;background:var(--c)}
+  .th-b .face::before{content:"";position:absolute;right:-20cqw;bottom:-20cqw;width:62cqw;height:62cqw;border-radius:50%;background:rgba(0,0,0,.16)}
+  .th-b .face::after{content:"";position:absolute;right:8cqw;top:9cqw;width:11cqw;height:11cqw;border-radius:50%;background:rgba(255,255,255,.3)}
+  .th-b .orn{left:50%;top:56%;width:92%;height:62%;background:#fff;border-radius:50%;transform:translate(-50%,-50%) rotate(-28deg)}
+  .th-b .c-wild .orn{background:conic-gradient(from 0deg,var(--blue) 0 25%,var(--green) 0 50%,var(--yellow) 0 75%,var(--red) 0);border:2.6cqw solid #fff;width:74%;height:54%}
+  .th-b .big{left:0;right:0;top:12cqw;bottom:0;font-family:"Archivo",sans-serif;font-weight:900;font-size:60cqw;color:var(--c);letter-spacing:-.05em;z-index:2}
+  .th-b .big.long{font-size:42cqw}
+  .th-b .big svg{width:44cqw;height:44cqw}
+  .th-b .c-yellow .big{color:#16181d}
+  .th-b .c-wild .big{color:#fff;-webkit-text-stroke:2.6cqw #14161b;paint-order:stroke fill}
+  .th-b .idx{font-family:"Archivo",sans-serif;font-weight:900;font-stretch:68%;font-size:27cqw;color:var(--ct);letter-spacing:-.01em}
+  .th-b .idx.tl{left:9cqw;top:5cqw}
+  .th-b .idx.br{right:9cqw;bottom:5cqw;transform:rotate(180deg)}
+  .th-b .idx svg{width:.85em;height:.85em}
+  .th-b .c-back .orn{background:var(--red);width:86%;height:58%}
+  .th-b .c-back .big{font-size:16cqw;color:var(--yellow);letter-spacing:.04em;transform:rotate(-28deg);-webkit-text-stroke:1.8cqw #14161b;paint-order:stroke fill;top:0}
+
+  /* ───────── panno verde da casinò ───────── */
+  .tbl.cz{margin:0;border:12px solid #3b2512;border-radius:22px;min-height:clamp(600px,80vh,690px);
+    --tb:#0f5c3a;--tx:#f2e9d3;--hb:linear-gradient(#2a1a0d,#1b1108);--ib-bg:#0b2a1a;--ib-fg:#f2e9d3;--ib-bd:#c9a227;--ib-r:12px;--acc:#f5d36b;--unob:#f5d36b;--unot:#1d1209;--avc:#0b2a1a;
+    background:radial-gradient(120% 95% at 50% 40%,#1f8254 0%,#0f5c3a 48%,#06301d 100%);
+    box-shadow:inset 0 0 0 2px rgba(201,162,39,.55),inset 0 0 110px rgba(0,0,0,.5)}
+  .tbl.cz::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.17;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .cz .hand{border-top:2px solid rgba(201,162,39,.7);z-index:2}
+  .cz .hud-top,.cz .bar,.cz .score{position:relative;z-index:2}
+  .cz .mid{position:relative;min-height:270px;padding-top:34px}
+  .cz .mid::before{content:"";position:absolute;left:50%;top:52%;width:min(80%,660px);aspect-ratio:2.7/1;transform:translate(-50%,-50%);border:2px solid rgba(201,162,39,.4);border-radius:50%;pointer-events:none}
+  .cz .gname{position:absolute;left:50%;top:10px;transform:translateX(-50%);font:800 .8rem "Archivo",sans-serif;letter-spacing:.55em;text-transform:uppercase;color:rgba(245,211,107,.6);white-space:nowrap;padding-left:.55em}
+  .cz .center,.cz .stat{position:relative;z-index:1}
+  .cz .badge,.cz .opp .cnt{background:#1d1209;color:#f5d36b;border-color:#c9a227}
+  .cz .opp .tm{background:rgba(0,0,0,.35)}
+  .cz .opp.on{background:rgba(0,0,0,.18)}
+  .uc.bk2{overflow:hidden;box-shadow:0 2px 0 rgba(0,0,0,.45)}
+  .uc.bk2 svg{display:block;width:100%;height:100%}
+  .uc.imgc{background:#fff;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.55),0 3px 0 rgba(0,0,0,.4)}
+  .uc.imgc img{display:block;width:100%;height:100%;object-fit:contain}
+  .cz.th-b .uc{box-shadow:0 2px 0 rgba(0,0,0,.45)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Direzioni a confronto</div>
+    <h1 id="mockTitle">Tavoli su panno verde da casinò</h1>
+    <p class="lead">Tocca un nome in alto per cambiare direzione. Ogni tile mostra l'estetica, un'interazione viva e il <b>perché</b>.</p>
+  </header>
+
+  <nav id="chips" role="tablist" aria-label="Direzioni"></nav>
+
+  <main id="stage">
+    <div id="panels">
+
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="i-skip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="3"/><path d="M6.2 17.8L17.8 6.2" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+        <symbol id="i-rev" viewBox="0 0 24 24"><path d="M3.5 8.5h13M12.5 4.5l4 4-4 4M20.5 15.5h-13M11.5 11.5l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-quad" viewBox="0 0 24 24"><path d="M12 12H2A10 10 0 0 1 12 2z" fill="#e4261f"/><path d="M12 12V2a10 10 0 0 1 10 10z" fill="#1f6fd1"/><path d="M12 12h10a10 10 0 0 1-10 10z" fill="#2f9e44"/><path d="M12 12v10A10 10 0 0 1 2 12z" fill="#f7c600"/></symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+        <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9.5L5 20v-4H4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+        <symbol id="i-sort" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.6" fill="#e4261f"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.6" fill="#f7c600"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.6" fill="#2f9e44"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.6" fill="#1f6fd1"/></symbol>
+        <symbol id="i-chev" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-cw" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      </svg>
+
+      <section class="dir-panel" data-name="UNO" data-mood="panno verde · bordo in legno e filo oro" data-why="Il dorso nero con ovale rosso risalta sul verde come una fiche: le carte restano il centro del tavolo." data-role="">
+        <div class="tbl cz th-b" data-game="uno"></div>
+      </section>
+      <section class="dir-panel" data-name="Napoletane" data-mood="panno verde · carte vere di pubblico dominio" data-why="I cubi bianchi e neri del dorso staccano nettamente dal verde: il mazzo si legge anche da lontano." data-role="" hidden>
+        <div class="tbl cz" data-game="nap"></div>
+      </section>
+      <section class="dir-panel" data-name="Francesi" data-mood="panno verde · carte svg-cards" data-why="Il blu del dorso è l'unico freddo sul tavolo caldo: pile e mano avversaria si distinguono subito." data-role="" hidden>
+        <div class="tbl cz" data-game="fra"></div>
+      </section>
+
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ── Scocca generica: chip auto-costruiti dai pannelli, uno visibile alla volta ──
+(function(){
+  const panelsBox = document.getElementById('panels');
+  const panels = [...panelsBox.querySelectorAll('.dir-panel')];
+  const chips = document.getElementById('chips');
+
+  // Disegna la chrome (barra nome+mood, riga "perché") dentro ogni pannello dai data-*
+  panels.forEach(p=>{
+    const inner = p.innerHTML;
+    const role = p.dataset.role || '';
+    const tag = role ? `<span class="dir-tag" data-role="${role}">${role}</span>` : `<span class="dir-tag">Direzione</span>`;
+    p.innerHTML = `
+      <div class="dir-card">
+        <div class="dir-head">
+          <div>
+            <div class="dir-name">${p.dataset.name||'Direzione'}</div>
+            <div class="dir-mood">${p.dataset.mood||''}</div>
+          </div>${tag}
+        </div>
+        <div class="dir-body">${inner}</div>
+        ${p.dataset.why ? `<div class="dir-why">✶&nbsp;<span><b>Perché:</b> ${p.dataset.why}</span></div>` : ``}
+      </div>`;
+  });
+
+  function show(i){
+    panels.forEach((p,j)=>p.toggleAttribute('hidden', j!==i));
+    [...chips.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===i));
+  }
+
+  panels.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.setAttribute('role','tab');
+    b.setAttribute('aria-pressed', i===0 ? 'true':'false');
+    b.innerHTML = `<span class="swatch"></span>${p.dataset.name || ('Direzione '+(i+1))}`;
+    b.addEventListener('click', ()=>show(i));
+    chips.appendChild(b);
+  });
+
+  show(0);
+
+  // Esempio di interazione "viva ma leggera" con dato finto in localStorage.
+  // (La skill può riusare lo stesso pattern data-save nei pannelli reali.)
+  document.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-save]');
+    if(!btn) return;
+    const on = btn.dataset.on === '1';
+    btn.dataset.on = on ? '0':'1';
+    btn.textContent = on ? 'Salva' : 'Salvato ✓';
+    try{ localStorage.setItem('mockup-demo-saved', on ? '0':'1'); }catch(_){}
+  });
+})();
+</script>
+<script>
+// ── Tavoli da casinò: UNO, Napoletane, Francesi. Panno verde, dati finti. ──
+(function(){
+  let uid = 0; const nid = p => p+(++uid);
+  const FRAME = (bg,inner,edge) => `<svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="200" height="300" fill="${edge||'#fff'}"/><rect x="10" y="10" width="180" height="280" rx="12" fill="${bg}"/>${inner}</svg>`;
+  const clip = id => `<clipPath id="${id}"><rect x="10" y="10" width="180" height="280" rx="12"/></clipPath>`;
+
+  // ═════ UNO ═════
+  function unoA(){ // fedele: nero, ovale rosso inclinato, scritta gialla con ombra
+    const t = 'font-family="Archivo,sans-serif" font-weight="900" font-size="30" letter-spacing="1" text-anchor="middle"';
+    return FRAME('#14161b', `<g transform="rotate(-28 100 150)"><ellipse cx="100" cy="150" rx="88" ry="60" fill="#e4261f" stroke="#fff" stroke-width="3"/>
+      <g transform="skewX(-8)"><text x="108" y="163" ${t} fill="#14161b">CARDLY</text><text x="104" y="159" ${t} fill="#f7c600">CARDLY</text></g></g>`);
+  }
+  function unoB(){ // Pop: forme Bauhaus, ovale con scritta a contorno
+    const id = nid('c');
+    return FRAME('#14161b', `${clip(id)}<g clip-path="url(#${id})"><circle cx="30" cy="272" r="62" fill="#fff" fill-opacity=".08"/><path d="M190 10v70L120 10z" fill="#fff" fill-opacity=".1"/>
+      <ellipse cx="100" cy="150" rx="86" ry="58" transform="rotate(-28 100 150)" fill="#e4261f"/>
+      </g>`);
+  }
+  function unoC(){ // ibrido: ovale + ruota dei quattro colori (il Jolly) al centro
+    return FRAME('#14161b', `<g transform="rotate(-28 100 150)"><ellipse cx="100" cy="150" rx="84" ry="56" fill="#e4261f" stroke="#fff" stroke-width="3"/>
+      <text x="100" y="196" text-anchor="middle" font-family="Archivo,sans-serif" font-weight="900" font-size="15" letter-spacing="3" fill="#f7c600">CARDLY</text></g>
+      <g transform="translate(100 142)"><circle r="31" fill="#fff"/><path d="M0 0H-26A26 26 0 0 1 0-26Z" fill="#e4261f"/><path d="M0 0V-26A26 26 0 0 1 26 0Z" fill="#1f6fd1"/><path d="M0 0H26A26 26 0 0 1 0 26Z" fill="#2f9e44"/><path d="M0 0V26A26 26 0 0 1-26 0Z" fill="#f7c600"/></g>`);
+  }
+
+  // ═════ NAPOLETANE ═════
+  const L = 17.32;
+  function cube(x,y,t,l,r){ return `<g transform="translate(${x} ${y})"><path d="M${L} 0L${2*L} 10L${L} 20L0 10Z" fill="${t}"/><path d="M0 10L${L} 20V40L0 30Z" fill="${l}"/><path d="M${L} 20L${2*L} 10V30L${L} 40Z" fill="${r}"/></g>`; }
+  function cubesPat(id,t,l,r,hatch){
+    const h = nid('h'), R = hatch ? `url(#${h})` : r;
+    return `<pattern id="${h}" width="4" height="3" patternUnits="userSpaceOnUse"><rect width="4" height="3" fill="${hatch?hatch[0]:r}"/><rect width="4" height="1.3" fill="${hatch?hatch[1]:r}"/></pattern>
+      <pattern id="${id}" width="${2*L}" height="60" patternUnits="userSpaceOnUse">${cube(0,0,t,l,R)}${cube(L,30,t,l,R)}${cube(-L,30,t,l,R)}${cube(L,-30,t,l,R)}${cube(-L,-30,t,l,R)}</pattern>`;
+  }
+  function latticePat(id,col,op){ return `<pattern id="${id}" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0H9M0 0V9" stroke="${col}" stroke-opacity="${op||1}" stroke-width="2.4" fill="none"/></pattern>`; }
+  function napA(){ // fedele: cubi bianco/nero/tratteggio, bordo a reticolo, doppia cornice
+    const c = nid('k'), p = nid('p'), id = nid('c');
+    return FRAME('#fff', `<defs>${clip(id)}${cubesPat(c,'#fff','#111','#fff',['#fff','#111'])}${latticePat(p,'#111')}</defs>
+      <g clip-path="url(#${id})"><rect x="10" y="10" width="180" height="280" fill="url(#${p})"/></g>
+      <rect x="22" y="22" width="156" height="256" rx="5" fill="#fff"/><rect x="25" y="25" width="150" height="250" rx="3" fill="#111"/>
+      <rect x="29" y="29" width="142" height="242" rx="2" fill="#fff"/><rect x="32" y="32" width="136" height="236" fill="url(#${c})"/>`, '#fff');
+  }
+  function napB(){ // Pop: cubi verdi e oro, reticolo oro su verde
+    const c = nid('k'), p = nid('p'), id = nid('c');
+    return FRAME('#17402f', `<defs>${clip(id)}${cubesPat(c,'#e8d48a','#0f2d21','#2f7a52')}${latticePat(p,'#c9a227',.55)}</defs>
+      <g clip-path="url(#${id})"><rect x="10" y="10" width="180" height="280" fill="url(#${p})"/></g>
+      <rect x="22" y="22" width="156" height="256" rx="5" fill="#17402f"/><rect x="26" y="26" width="148" height="248" rx="3" fill="none" stroke="#c9a227" stroke-width="2.5"/>
+      <rect x="31" y="31" width="138" height="238" fill="url(#${c})"/>`);
+  }
+  const SUIT = {
+    denari:`<circle r="13" fill="#c9a227"/><circle r="7" fill="none" stroke="#17402f" stroke-width="2.4"/><circle r="2.2" fill="#17402f"/>`,
+    coppe:`<path d="M-11-12H11C11-2 6 5 0 6C-6 5-11-2-11-12Z" fill="#c9a227"/><rect x="-2" y="6" width="4" height="7" fill="#c9a227"/><rect x="-8" y="13" width="16" height="3.5" rx="1.5" fill="#c9a227"/>`,
+    spade:`<path d="M-2.6-16L0-22L2.6-16V10H-2.6Z" fill="#c9a227"/><rect x="-10" y="10" width="20" height="3.6" rx="1.6" fill="#c9a227"/><rect x="-2" y="13" width="4" height="7" fill="#c9a227"/>`,
+    bastoni:`<g transform="rotate(32)"><rect x="-4" y="-17" width="8" height="34" rx="4" fill="#c9a227"/><ellipse cx="-7" cy="-8" rx="4" ry="2.4" transform="rotate(-30 -7 -8)" fill="#c9a227"/><ellipse cx="7" cy="2" rx="4" ry="2.4" transform="rotate(30 7 2)" fill="#c9a227"/></g>`
+  };
+  function napC(){ // ibrido: reticolo + i quattro semi in medaglioni
+    const p = nid('p'), id = nid('c');
+    const q = (x,y,k) => `<g transform="translate(${x} ${y})"><circle r="27" fill="none" stroke="#f2e9d3" stroke-width="2"/>${SUIT[k]}</g>`;
+    return FRAME('#17402f', `<defs>${clip(id)}${latticePat(p,'#f2e9d3',.2)}</defs><g clip-path="url(#${id})"><rect x="10" y="10" width="180" height="280" fill="url(#${p})"/></g>
+      <rect x="22" y="22" width="156" height="256" rx="5" fill="#17402f" stroke="#f2e9d3" stroke-width="2"/><rect x="29" y="29" width="142" height="242" rx="3" fill="none" stroke="#f2e9d3" stroke-opacity=".6"/>
+      ${q(66,86,'denari')}${q(134,86,'coppe')}${q(66,214,'spade')}${q(134,214,'bastoni')}
+      <g transform="translate(100 150) rotate(45)"><rect x="-18" y="-18" width="36" height="36" fill="#c9a227" stroke="#f2e9d3" stroke-width="3"/><rect x="-6" y="-6" width="12" height="12" fill="#17402f"/></g>`);
+  }
+
+  // ═════ FRANCESI ═════
+  function wave(x1,y1,x2,y2){ // linea ondulata tra due punti (orizzontale o verticale)
+    const n = 48, hor = Math.abs(x2-x1)>Math.abs(y2-y1); let d = '';
+    for(let i=0;i<=n;i++){ const t=i/n, a=Math.sin(t*Math.PI*14)*2.2;
+      const x = hor ? x1+(x2-x1)*t : x1+a, y = hor ? y1+a : y1+(y2-y1)*t; d += (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1); }
+    return `<path d="${d}" fill="none" stroke="#fff" stroke-width="1.2"/>`;
+  }
+  const FLEUR = `<path d="M0 0C-3-10 4-16 12-14C8-8 6-4 0 0Z M0 0C-10-3-16 4-14 12C-8 8-4 6 0 0Z M0 0C3-6 10-6 14-12C12-2 8 2 0 0Z" fill="#fff"/><circle r="3" fill="#fff"/>`;
+  function medal(col){ const petals=[...Array(8)].map((_,i)=>`<ellipse cx="0" cy="-20" rx="5" ry="11" transform="rotate(${i*45})" fill="none" stroke="${col}" stroke-width="1.6"/>`).join('');
+    return `<ellipse rx="34" ry="44" fill="none" stroke="${col}" stroke-width="2"/><ellipse rx="28" ry="38" fill="none" stroke="${col}" stroke-width="1"/>${petals}<circle r="8" fill="${col}"/>`; }
+  function fraA(){ // fedele: blu, cerchietti a righe, fioroni, medaglione, bordo ondulato
+    const d = nid('d'), id = nid('c');
+    return FRAME('#1d5fdc', `<defs>${clip(id)}<pattern id="${d}" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3.3" fill="none" stroke="#fff" stroke-width="1.6"/></pattern></defs>
+      <rect x="17" y="17" width="166" height="266" rx="5" fill="none" stroke="#fff" stroke-width="1.6"/>
+      ${wave(28,24,172,24)}${wave(28,276,172,276)}${wave(24,30,24,270)}${wave(176,30,176,270)}
+      <rect x="36" y="38" width="128" height="224" fill="none" stroke="#fff" stroke-width="1.4"/>
+      <rect x="42" y="44" width="116" height="212" fill="url(#${d})"/>
+      <ellipse cx="100" cy="150" rx="42" ry="52" fill="#1d5fdc"/><g transform="translate(100 150)">${medal('#fff')}</g>
+      <g transform="translate(55 62) rotate(0)">${FLEUR}</g><g transform="translate(145 62) scale(-1 1)">${FLEUR}</g>
+      <g transform="translate(55 238) scale(1 -1)">${FLEUR}</g><g transform="translate(145 238) scale(-1 -1)">${FLEUR}</g>`);
+  }
+  function fraB(){ // Pop: navy, punti pieni, quarti di cerchio ai quattro angoli, C al centro
+    const d = nid('d'), id = nid('c');
+    return FRAME('#14275a', `<defs>${clip(id)}<pattern id="${d}" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3" fill="#fff" fill-opacity=".85"/></pattern></defs>
+      <g clip-path="url(#${id})"><rect x="22" y="22" width="156" height="256" fill="url(#${d})"/>
+      <path d="M10 10H66A56 56 0 0 1 10 66Z" fill="#e4572e"/><path d="M190 10V66A56 56 0 0 1 134 10Z" fill="#5aa2ff"/>
+      <path d="M10 290V234A56 56 0 0 1 66 290Z" fill="#ffd23a"/><path d="M190 290H134A56 56 0 0 1 190 234Z" fill="#fff"/></g>
+      <circle cx="100" cy="150" r="46" fill="#14275a"/><circle cx="100" cy="150" r="40" fill="#fff" stroke="#e4572e" stroke-width="5"/>
+      <text x="100" y="168" text-anchor="middle" font-family="Archivo,sans-serif" font-weight="900" font-size="52" fill="#14275a">C</text>`);
+  }
+  function fraC(){ // ibrido: cerchietti + rombo con i quattro semi
+    const d = nid('d');
+    return FRAME('#1d5fdc', `<defs><pattern id="${d}" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3.3" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6"/></pattern></defs>
+      <rect x="18" y="18" width="164" height="264" rx="5" fill="none" stroke="#fff" stroke-width="2"/><rect x="24" y="24" width="152" height="252" rx="3" fill="none" stroke="#fff" stroke-opacity=".6"/>
+      <rect x="32" y="32" width="136" height="236" fill="url(#${d})"/>
+      <g transform="translate(100 150) rotate(45)"><rect x="-48" y="-48" width="96" height="96" fill="#1d5fdc" stroke="#fff" stroke-width="4"/><rect x="-40" y="-40" width="80" height="80" fill="none" stroke="#fff" stroke-opacity=".6"/></g>
+      <g font-family="Archivo,sans-serif" font-weight="900" font-size="30" text-anchor="middle" fill="#fff"><text x="82" y="140">&#9824;</text><text x="118" y="140" fill="#ffd0c4">&#9829;</text><text x="82" y="176" fill="#ffd0c4">&#9830;</text><text x="118" y="176">&#9827;</text></g>`);
+  }
+
+
+  const BACK = {uno:unoB, nap:napA, fra:fraA};
+  const NAME = {uno:'UNO', nap:'Briscola · Scopa', fra:'Poker · Scala 40'};
+  const COL = {red:'Rosso', yellow:'Giallo', green:'Verde', blue:'Blu', wild:'Jolly'};
+  const HEX = {red:'#e4261f', yellow:'#f7c600', green:'#2f9e44', blue:'#1f6fd1'};
+  const VNAME = {skip:'Stop', rev:'Inversione', '+2':'Pesca 2', wild:'Jolly', '+4':'Jolly +4'};
+  const COLORS = ['red','yellow','green','blue'];
+  const ORDER = {red:0, yellow:1, green:2, blue:3, wild:4};
+  const VORD = v => ({skip:10, rev:11, '+2':12, wild:13, '+4':14}[v] ?? Number(v));
+  const ICON = id => `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${id}"/></svg>`;
+  const bigOf = v => v==='skip' ? ICON('i-skip') : v==='rev' ? ICON('i-rev') : v==='wild' ? '' : v;
+  const smallOf = v => v==='skip' ? ICON('i-skip') : v==='rev' ? ICON('i-rev') : v==='wild' ? ICON('i-quad') : v;
+  const unoLabel = s => s.c==='wild' ? VNAME[s.v] : `${VNAME[s.v]||s.v} ${COL[s.c].toLowerCase()}`;
+
+  // carte napoletane (file veri) e francesi (PNG di svg-cards)
+  const RANK = ['Asso','Due','Tre','Quattro','Cinque','Sei','Sette','Fante','Cavallo','Re'];
+  const SUITS = ['denari','coppe','spade','bastoni'];
+  const nap = (suit,n) => ({img:`../src/assets/cards/napoletane/${suit}-${String(n).padStart(2,'0')}.jpg`, label:`${RANK[n-1]} di ${suit}`, k:SUITS.indexOf(suit)*20+n});
+  const FR = {heart_7:'Sette di cuori',heart_8:'Otto di cuori',club_10:'Dieci di fiori',spade_1:'Asso di picche',diamond_king:'Re di quadri',spade_queen:'Donna di picche',club_3:'Tre di fiori',diamond_5:'Cinque di quadri',joker_red:'Jolly',diamond_9:'Nove di quadri'};
+  const fr = (id,k) => ({img:`assets/fr/${id}.png`, label:FR[id], k});
+
+  const DATA = {
+    uno:{pile:{c:'red',v:'4'}, hand:[{c:'red',v:'9'},{c:'yellow',v:'4'},{c:'green',v:'4'},{c:'blue',v:'7'},{c:'red',v:'skip'},{c:'wild',v:'wild'},{c:'yellow',v:'+2'},{c:'green',v:'rev'},{c:'blue',v:'2'},{c:'red',v:'0'},{c:'wild',v:'+4'}]},
+    nap:{pile:nap('bastoni',3), hand:[nap('denari',7),nap('coppe',3),nap('spade',10),nap('bastoni',1),nap('denari',1),nap('coppe',7),nap('spade',4),nap('bastoni',9)]},
+    fra:{pile:fr('diamond_9',9), hand:[fr('heart_7',7),fr('heart_8',8),fr('club_10',10),fr('spade_1',1),fr('diamond_king',13),fr('spade_queen',12),fr('club_3',3),fr('diamond_5',5),fr('joker_red',14)]}
+  };
+
+  function unoCard(s, tag){
+    const e = document.createElement(tag||'div');
+    const isLong = typeof s.v==='string' && s.v.length>1;
+    e.className = `uc c-${s.c}`;
+    e.innerHTML = `<span class="face"><span class="orn"></span><span class="big${isLong?' long':''}">${bigOf(s.v)}</span></span>`
+      + `<span class="idx tl">${smallOf(s.v)}</span><span class="idx br">${smallOf(s.v)}</span><span class="nm">${s.c==='wild'?'Jolly':COL[s.c]}</span>`;
+    e.setAttribute('aria-label', unoLabel(s));
+    if(tag==='button') e.type='button';
+    return e;
+  }
+  function imgCard(s, tag){
+    const e = document.createElement(tag||'div');
+    e.className = 'uc imgc';
+    e.innerHTML = `<img src="${s.img}" alt="">`;
+    e.setAttribute('aria-label', s.label);
+    if(tag==='button') e.type='button';
+    return e;
+  }
+  function backCard(game, tag){
+    const e = document.createElement(tag||'div');
+    e.className = 'uc bk2';
+    e.innerHTML = BACK[game]();
+    if(tag==='button') e.type='button';
+    return e;
+  }
+
+  const OPPS = [['Zarey','Z',6,true,70],['Luca','L',4,false,0],['Mari','M',9,false,0]];
+  const AVC = ['#e4261f','#1f6fd1','#2f9e44'];
+  const SCENE = game => `
+    <div class="hud-top">
+      <div class="hud-l">
+        <button class="ib" type="button" aria-label="Impostazioni">${ICON('i-gear')}</button>
+        <button class="ib" type="button" aria-label="Schermo intero">${ICON('i-full')}</button>
+      </div>
+      <div class="opps">${OPPS.map((o,i)=>`
+        <div class="opp${o[3]?' on':''}" style="--avc:${AVC[i]};--p:${o[4]}%">
+          <span class="av">${o[1]}</span><span class="nm2">${o[0]}</span>
+          <span class="fan" data-fan="${Math.min(o[2],6)}"></span><b class="cnt">${o[2]}</b><i class="tm"></i>
+        </div>`).join('')}</div>
+      <div class="hud-r">
+        <span class="room">Vittoria 500 · Round 1</span>
+        <button class="ib" type="button" aria-label="Chat, 1 messaggio">${ICON('i-chat')}<em>1</em></button>
+      </div>
+    </div>
+    <div class="mid">
+      <span class="gname">${NAME[game]}</span>
+      <div class="center">
+        <div class="deckw"><span data-deck></span><b class="badge">23</b></div>
+        <div class="pile"></div>
+        <span class="dir" title="Senso orario">${ICON('i-cw')}</span>
+      </div>
+      <p class="stat" aria-live="polite"></p>
+    </div>
+    <div class="score"><span>Tu 730</span><span>Avv 335</span></div>
+    <div class="bar">
+      <button class="ib sort" type="button" aria-label="Ordina la mano">${ICON('i-sort')}</button>
+      <button class="uno" type="button" aria-pressed="false">${game==='uno'?'UNO!':'PASSO'}</button>
+      <button class="ib xp" type="button" aria-expanded="false" aria-label="Espandi la mano">${ICON('i-chev')}</button>
+    </div>
+    <div class="hand"></div>`;
+
+  document.querySelectorAll('.tbl.cz').forEach(tbl=>{
+    const game = tbl.dataset.game, isUno = game==='uno';
+    tbl.innerHTML = SCENE(game);
+    const $ = s => tbl.querySelector(s);
+    const hand=$('.hand'), pileBox=$('.pile'), stat=$('.stat'), badge=$('.badge'), xp=$('.xp'), uno=$('.uno');
+    tbl.querySelectorAll('[data-fan]').forEach(f=>{ for(let i=0;i<+f.dataset.fan;i++) f.appendChild(backCard(game)); });
+    const deck = backCard(game,'button'); deck.setAttribute('aria-label','Pesca una carta');
+    $('[data-deck]').replaceWith(deck);
+
+    let pile = DATA[game].pile, cards = DATA[game].hand.slice(), drawLeft = 23, active = pile.c;
+    const mk = (s,tag) => isUno ? unoCard(s,tag) : imgCard(s,tag);
+    const label = s => isUno ? unoLabel(s) : s.label;
+    const ok = s => !isUno || s.c==='wild' || s.c===active || (pile.c!=='wild' && s.v===pile.v);
+    const msg = t => { stat.textContent = isUno ? `${t} · Colore attivo: ${COL[active]}` : t; };
+
+    function fit(){
+      const pc = pileBox.querySelector('.uc');
+      if(pc && pc.getBoundingClientRect().width) pileBox.style.setProperty('--pw', pc.getBoundingClientRect().width+'px');
+      if(hand.hasAttribute('data-open') || cards.length<2) return;
+      const w = hand.querySelector('.uc').getBoundingClientRect().width;
+      if(!w) return;
+      const room = hand.clientWidth - 20;
+      const step = Math.min(Math.max(w*.6, 44), Math.max(44, (room-w)/(cards.length-1)));
+      hand.style.setProperty('--ov', (1 - step/w).toFixed(3));
+    }
+    function render(landed){
+      hand.innerHTML='';
+      cards.forEach((s,i)=>{ const b = mk(s,'button'); if(ok(s)) b.classList.add('ok'); b.addEventListener('click',()=>play(i)); hand.appendChild(b); });
+      pileBox.innerHTML=''; const p = mk(pile); if(landed) p.classList.add('land'); pileBox.appendChild(p);
+      pileBox.style.setProperty('--ring', isUno ? HEX[active] : 'transparent');
+      badge.textContent = drawLeft; fit();
+    }
+    function play(i){
+      const s = cards[i];
+      if(!ok(s)){ msg(`${label(s)}: non si può giocare`); return; }
+      cards.splice(i,1); pile = s;
+      if(isUno) active = s.c==='wild' ? COLORS[Math.floor(Math.random()*4)] : s.c;
+      render(true);
+      msg(isUno && cards.length===1 ? 'Ultima carta: premi UNO!' : cards.length ? `Giocata: ${label(s)}` : 'Mano finita, hai vinto');
+    }
+    deck.addEventListener('click',()=>{
+      if(cards.length>=14){ msg('Mano piena'); return; }
+      const pool = isUno ? null : DATA[game].hand;
+      const s = isUno ? (()=>{ const c = COLORS[Math.floor(Math.random()*4)], v = ['0','1','2','3','4','5','6','7','8','9','skip','rev','+2'][Math.floor(Math.random()*13)]; return {c,v}; })() : pool[Math.floor(Math.random()*pool.length)];
+      cards.push(s); drawLeft = Math.max(0, drawLeft-1); render(false); msg('Hai pescato');
+    });
+    $('.sort').addEventListener('click',()=>{
+      cards.sort(isUno ? (a,b)=>ORDER[a.c]-ORDER[b.c] || VORD(a.v)-VORD(b.v) : (a,b)=>a.k-b.k);
+      render(false); msg('Mano ordinata');
+    });
+    uno.addEventListener('click',()=>{
+      const on = uno.getAttribute('aria-pressed')==='true';
+      uno.setAttribute('aria-pressed', on?'false':'true');
+      msg(!isUno ? (on?'Turno ripreso':'Hai passato il turno') : on ? 'UNO annullato' : cards.length<=2 ? 'UNO! detto' : `Troppo presto: hai ancora ${cards.length} carte`);
+    });
+    xp.addEventListener('click',()=>{
+      const open = !hand.hasAttribute('data-open');
+      hand.toggleAttribute('data-open', open);
+      xp.setAttribute('aria-expanded', open);
+      xp.setAttribute('aria-label', open ? 'Comprimi la mano' : 'Espandi la mano');
+      if(!open) fit();
+    });
+    tbl._fit = fit; render(false); msg('Tocca una carta rialzata');
+  });
+  addEventListener('resize',()=>document.querySelectorAll('.tbl').forEach(t=>t._fit&&t._fit()));
+  document.addEventListener('click',e=>{ if(e.target.closest('#chips')) setTimeout(()=>document.querySelectorAll('.tbl').forEach(t=>t._fit&&t._fit()),30); });
+})();
+</script>
+</body>
+</html>
