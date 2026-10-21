@@ -1,6 +1,6 @@
 # CardlyHub
 
-Una piattaforma web di giochi di carte, a partire da Machiavelli multigiocatore, Briscola e Solitario.
+Una piattaforma web per scoprire e giocare online a giochi di carte, da soli o in compagnia.
 
 ## Sviluppo
 
