@@ -33,6 +33,11 @@ function App() {
           <p className="lead">
             Open a private room, share the code and play live. No account needed.
           </p>
+          <ul className="quick-facts" aria-label="Game highlights">
+            <li>2 players</li>
+            <li>Live turns</li>
+            <li>Undo anytime</li>
+          </ul>
 
           <div className="room-panel">
             <div className="mode-switch" role="group" aria-label="Room action">
