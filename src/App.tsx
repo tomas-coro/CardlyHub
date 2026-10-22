@@ -241,8 +241,8 @@ function App() {
   const recentGames = recentIds.map((id) => games.find((game) => game.id === id)!)
 
   useEffect(() => onAuthStateChanged(auth, (nextUser) => {
-    setUser(nextUser)
-    if (!nextUser) return
+    setUser(nextUser?.isAnonymous ? null : nextUser)
+    if (!nextUser || nextUser.isAnonymous) return
     const profile = doc(db, 'users', nextUser.uid)
     void getDoc(profile).then(async (snapshot) => {
       const savedDeck = snapshot.get('preferences.briscolaDeck')

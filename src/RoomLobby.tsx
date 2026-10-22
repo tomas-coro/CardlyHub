@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { createRoom, joinRoom, loadRoom, subscribeRoom, supabaseConfigured, unsubscribeRoom } from './lib/rooms.ts'
+import { createRoom, joinRoom, subscribeRoom } from './lib/rooms.ts'
 import type { RoomSnapshot } from './lib/rooms.ts'
 
 type Mode = 'create' | 'join'
@@ -23,11 +23,7 @@ export default function RoomLobby({ initialMode, onClose }: { initialMode: Mode;
 
   useEffect(() => {
     if (!roomId) return
-    let active = true
-    const refresh = () => loadRoom(roomId).then((next) => { if (active) setRoom(next) }).catch((reason: unknown) => { if (active) setError(errorMessage(reason)) })
-    refresh()
-    const channel = subscribeRoom(roomId, refresh)
-    return () => { active = false; void unsubscribeRoom(channel) }
+    return subscribeRoom(roomId, setRoom, (reason) => setError(errorMessage(reason)))
   }, [roomId])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -72,20 +68,16 @@ export default function RoomLobby({ initialMode, onClose }: { initialMode: Mode;
           <>
             <p className="status"><i /> Multiplayer</p>
             <h2 id="room-title">{mode === 'create' ? 'Apri un tavolo' : 'Entra al tavolo'}</h2>
-            {!supabaseConfigured ? (
-              <p className="room-error" role="alert">Configura Supabase in <code>.env.local</code> prima di creare una stanza.</p>
-            ) : (
-              <form onSubmit={submit}>
-                <label>Il tuo nome<input name="name" autoComplete="nickname" maxLength={24} required autoFocus /></label>
-                {mode === 'create' ? (
-                  <label>Gioco<select name="game" defaultValue="briscola">{Object.entries(GAME_NAMES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
-                ) : (
-                  <label>Codice stanza<input className="room-code-input" name="code" autoComplete="off" minLength={6} maxLength={6} pattern="[A-Za-z0-9]{6}" required /></label>
-                )}
-                <button className="main-action" disabled={busy}>{busy ? 'Connessione…' : mode === 'create' ? 'Crea stanza' : 'Entra'}</button>
-                {error && <p className="room-error" role="alert">{error}</p>}
-              </form>
-            )}
+            <form onSubmit={submit}>
+              <label>Il tuo nome<input name="name" autoComplete="nickname" maxLength={24} required autoFocus /></label>
+              {mode === 'create' ? (
+                <label>Gioco<select name="game" defaultValue="briscola">{Object.entries(GAME_NAMES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+              ) : (
+                <label>Codice stanza<input className="room-code-input" name="code" autoComplete="off" minLength={6} maxLength={6} pattern="[A-HJ-NP-Za-hj-np-z2-9]{6}" required /></label>
+              )}
+              <button className="main-action" disabled={busy}>{busy ? 'Connessione…' : mode === 'create' ? 'Crea stanza' : 'Entra'}</button>
+              {error && <p className="room-error" role="alert">{error}</p>}
+            </form>
             <button className="room-switch" onClick={() => { setMode(mode === 'create' ? 'join' : 'create'); setError('') }}>
               {mode === 'create' ? 'Hai già un codice?' : 'Vuoi creare una stanza?'}
             </button>

@@ -1,12 +1,9 @@
-import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
+import { signInAnonymously } from 'firebase/auth'
+import { doc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { auth, db } from './firebase.ts'
+import { addPlayer, createRoomCode, MAX_PLAYERS, normalizeName } from './rooms-domain.ts'
+import type { RoomPlayer, RoomPlayers } from './rooms-domain.ts'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-
-export const supabaseConfigured = Boolean(url && key)
-const supabase = supabaseConfigured ? createClient(url, key) : null
-
-export type RoomPlayer = { user_id: string; seat: number; name: string }
 export type RoomSnapshot = {
   id: string
   code: string
@@ -16,49 +13,70 @@ export type RoomSnapshot = {
   players: RoomPlayer[]
 }
 
-function client() {
-  if (!supabase) throw new Error('Supabase non è configurato. Aggiungi le variabili VITE_SUPABASE_* nel file .env.local.')
-  return supabase
+type RoomDocument = {
+  code: string
+  game: string
+  host_id: string
+  status: RoomSnapshot['status']
+  players: RoomPlayers
 }
 
-async function ensureSession() {
-  const db = client()
-  const { data } = await db.auth.getSession()
-  if (data.session) return
-  const { error } = await db.auth.signInAnonymously()
-  if (error) throw error
+async function userId() {
+  await auth.authStateReady()
+  return (auth.currentUser ?? (await signInAnonymously(auth)).user).uid
 }
 
-async function enterRoom(functionName: 'create_room' | 'join_room', values: Record<string, string>) {
-  await ensureSession()
-  const { data, error } = await client().rpc(functionName, values)
-  if (error) throw error
-  const room = data?.[0]
-  if (!room) throw new Error('Supabase non ha restituito la stanza.')
-  return { id: room.room_id as string, code: room.room_code as string }
+function roomSnapshot(id: string, data: RoomDocument): RoomSnapshot {
+  return { ...data, id, players: Object.values(data.players).sort((a, b) => a.seat - b.seat) }
 }
 
-export const createRoom = (game: string, name: string) => enterRoom('create_room', { p_game: game, p_name: name })
-export const joinRoom = (code: string, name: string) => enterRoom('join_room', { p_code: code, p_name: name })
+export async function createRoom(game: string, value: string) {
+  const uid = await userId()
+  const name = normalizeName(value)
+  if (!MAX_PLAYERS[game]) throw new Error('Gioco non valido.')
 
-export async function loadRoom(id: string): Promise<RoomSnapshot> {
-  const db = client()
-  const [{ data: room, error: roomError }, { data: players, error: playersError }] = await Promise.all([
-    db.from('rooms').select('id, code, game, host_id, status').eq('id', id).single(),
-    db.from('room_players').select('user_id, seat, name').eq('room_id', id).order('seat'),
-  ])
-  if (roomError) throw roomError
-  if (playersError) throw playersError
-  return { ...room, players } as RoomSnapshot
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = createRoomCode()
+    const room = doc(db, 'rooms', code)
+    try {
+      await runTransaction(db, async (transaction) => {
+        if ((await transaction.get(room)).exists()) throw new Error('CODE_COLLISION')
+        transaction.set(room, {
+          code,
+          game,
+          host_id: uid,
+          status: 'waiting',
+          players: { [uid]: { user_id: uid, seat: 0, name } },
+          created_at: serverTimestamp(),
+        })
+      })
+      return { id: code, code }
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'CODE_COLLISION') throw error
+    }
+  }
+  throw new Error('Impossibile generare il codice stanza.')
 }
 
-export function subscribeRoom(id: string, refresh: () => void): RealtimeChannel {
-  return client().channel(`room:${id}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${id}` }, refresh)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${id}` }, refresh)
-    .subscribe()
+export async function joinRoom(value: string, name: string) {
+  const uid = await userId()
+  const code = value.trim().toUpperCase()
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) throw new Error('Codice stanza non valido.')
+  const room = doc(db, 'rooms', code)
+
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(room)
+    if (!snapshot.exists()) throw new Error('Stanza non trovata.')
+    const data = snapshot.data() as RoomDocument
+    if (data.status !== 'waiting') throw new Error('La partita è già iniziata.')
+    transaction.update(room, { players: addPlayer(data.players, uid, name, MAX_PLAYERS[data.game]) })
+  })
+  return { id: code, code }
 }
 
-export function unsubscribeRoom(channel: RealtimeChannel) {
-  return client().removeChannel(channel)
+export function subscribeRoom(id: string, next: (room: RoomSnapshot) => void, fail: (error: Error) => void) {
+  return onSnapshot(doc(db, 'rooms', id), (snapshot) => {
+    if (!snapshot.exists()) return fail(new Error('Stanza non trovata.'))
+    next(roomSnapshot(snapshot.id, snapshot.data() as RoomDocument))
+  }, fail)
 }
