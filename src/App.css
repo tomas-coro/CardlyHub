@@ -66,11 +66,23 @@ a { text-decoration: none; }
 .casino-hero p { margin: 0 0 10px; color: var(--gold); font-size: .72rem; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; }
 .casino-hero h1 { margin: 0; font: 400 clamp(2.7rem, 6.4vw, 5.4rem)/.95 "Gloock", serif; text-wrap: balance; }
 .casino-hero span { display: block; max-width: 46ch; margin: 16px auto 0; font-size: clamp(.9rem, 1.4vw, 1.05rem); line-height: 1.55; opacity: .78; }
-.casino-categories { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: clamp(18px, 2.4vw, 34px) clamp(14px, 2vw, 28px); margin: 0 auto; }
-.casino-category { min-width: 0; flex: var(--count) 1 calc(var(--count) * 170px); display: flex; flex-direction: column; gap: 24px; }
-.casino-category h2 { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--gold); font-size: .7rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
-.casino-category h2::after { content: ""; min-width: 12px; height: 1px; flex: 1; background: var(--gold-soft); }
-.casino-category > div { display: grid; grid-template-columns: repeat(var(--count), 1fr); gap: clamp(10px, 1.4vw, 18px); flex: 1; }
+.catalog { width: min(100%, 1180px); display: grid; gap: 46px; margin: 0 auto; }
+.catalog-family { padding-top: 22px; border-top: 1px solid var(--gold-soft); }
+.catalog-family > header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.catalog-family > header h2 { margin: 0; color: var(--gold); font: 400 clamp(1.8rem, 3vw, 2.8rem) "Gloock", serif; }
+.catalog-family > header p { max-width: 55ch; margin: 5px 0 0; line-height: 1.45; opacity: .72; }
+.catalog-family > header > span { flex: none; padding-bottom: 5px; color: var(--gold); font-size: .78rem; font-weight: 700; }
+.catalog-primary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 18px; }
+.catalog-main-card { position: relative; }
+.catalog-main-card .casino-spot { width: 100%; }
+.catalog-kind { color: var(--gold); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.rule-help { position: absolute; z-index: 2; top: 14px; right: 14px; width: 34px; height: 34px; border: 1px solid var(--gold); border-radius: 50%; color: var(--gold); background: var(--felt-dark); font-weight: 800; }
+.rule-help:hover { color: var(--felt-dark); background: var(--gold); }
+.catalog-derived { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.catalog-derived button { min-height: 42px; display: flex; align-items: center; gap: 9px; padding: 0 9px 0 15px; border: 1px solid rgb(212 175 90 / 26%); border-radius: 999px; color: var(--ivory); background: rgb(4 30 19 / 22%); }
+.catalog-derived button:hover { border-color: var(--gold); background: rgb(212 175 90 / 10%); }
+.catalog-derived small { opacity: .55; }
+.catalog-derived i { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: var(--felt-dark); background: var(--gold); font-size: .72rem; font-style: normal; font-weight: 800; }
 .casino-spot {
   --spread: 1;
   position: relative;
@@ -127,6 +139,16 @@ a { text-decoration: none; }
 .room-code-live { width: 100%; display: flex; align-items: center; justify-content: space-between; margin: 22px 0; padding: 17px; border: 2px solid var(--ink); border-radius: 9px; color: #2a1a0c; background: var(--gold); font-size: 22px; font-weight: 900; }
 .room-code-live small { font-size: 9px; letter-spacing: 0; }
 .room-note { opacity: .65; font-size: 11px; }
+.rules-modal { width: min(100%, 620px); }
+.rules-modal ol { display: grid; gap: 12px; margin: 26px 0; padding-left: 28px; line-height: 1.5; }
+.rules-modal li::marker { color: #8a6a2b; font-weight: 800; }
+.rules-option { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgb(23 21 43 / 20%); }
+.rules-option h3 { margin: 0 0 10px; font-size: .85rem; }
+.rules-option > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.rules-option span { padding: 8px 11px; border: 1px solid rgb(23 21 43 / 25%); border-radius: 999px; font-size: .82rem; }
+.rules-option span.is-default { border-color: #8a6a2b; background: rgb(212 175 90 / 25%); }
+.rules-option p, .rules-coming { margin: 10px 0 0; font-size: .78rem; opacity: .7; }
+.rules-coming { padding-top: 16px; border-top: 1px solid rgb(23 21 43 / 20%); }
 
 /* Preparazione, statistiche e torneo */
 .setup-modal h2 { margin-bottom: 24px; }
@@ -167,13 +189,20 @@ a { text-decoration: none; }
   .casino-bar .casino-pair { display: none; }
   .casino-line { padding: 0 13px; font-size: .78rem; }
   .casino-hero { padding: 22px 0 20px; }
-  .casino-categories { flex-direction: column; gap: 18px; }
-  .casino-category { flex: none; gap: 14px; }
-  .casino-category > div { gap: 10px; }
+  .catalog { gap: 34px; }
+  .catalog-family { padding-top: 16px; }
+  .catalog-family > header { align-items: start; margin-bottom: 14px; }
+  .catalog-family > header p { font-size: .85rem; }
+  .catalog-family > header > span { display: none; }
+  .catalog-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .catalog-primary:has(.catalog-main-card:only-child) { grid-template-columns: 1fr; }
   .casino-spot { min-height: 180px; padding: 22px 8px 12px; border-radius: 20px; }
   .casino-spot:hover { transform: none; }
-  .casino-category[data-count="1"] .casino-spot { min-height: 125px; display: grid; grid-template-columns: 52% 1fr; padding: 16px; text-align: left; justify-items: start; }
-  .casino-category[data-count="1"] .game-symbol { margin: 0; }
+  .catalog-primary .catalog-main-card:only-child .casino-spot { min-height: 145px; display: grid; grid-template-columns: 52% 1fr; padding: 16px; text-align: left; justify-items: start; }
+  .catalog-primary .catalog-main-card:only-child .game-symbol { grid-row: 1 / 4; margin: 0; }
+  .catalog-derived { gap: 6px; }
+  .catalog-derived button { min-height: 38px; padding-left: 12px; }
+  .catalog-derived small { display: none; }
   .game-symbol { height: 100px; }
   .casino-spot .card { width: 48px; }
   .casino-spot .card:first-child { --x: -38px; }

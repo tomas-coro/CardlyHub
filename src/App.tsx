@@ -19,6 +19,7 @@ import { partnerOf } from './lib/partner-domain.ts'
 import { tournamentGame, winsNeeded, type BestOf } from './lib/tournament.ts'
 import type { GameResult } from './lib/game-result.ts'
 import { addResult, emptyGameStat, type GameStat } from './lib/statistics.ts'
+import { catalog, families, type CatalogGame } from './lib/game-catalog.ts'
 import { buildDeck as buildBriscolaDeck, newGame as newBriscolaGame, shuffle as shuffleBriscola } from './games/briscola/engine.ts'
 import type { GameState as BriscolaState } from './games/briscola/engine.ts'
 
@@ -86,7 +87,7 @@ function GameArt({ game }: { game: Game }) {
   // Carte francesi: simboli dello sprite svg-cards (public/cards/french), una <use> per carta
   if (game.id === 'machiavelli' || game.id === 'burraco') return (
     <div className={`game-symbol ${game.id}`} aria-hidden="true">
-      {(game.id === 'burraco' ? ['spade_2', 'heart_queen', 'joker_black'] : ['club_1', 'diamond_3', 'heart_10']).map((id) => (
+      {(game.id === 'burraco' ? ['spade_2', 'heart_queen', 'joker_black'] : ['club_1', 'diamond_3', 'spade_10']).map((id) => (
         <svg key={id} className="card real" viewBox="0 0 169.075 244.64"><use href={`/cards/french/svg-cards.svg#${id}`} /></svg>
       ))}
     </div>
@@ -101,10 +102,11 @@ function GameArt({ game }: { game: Game }) {
   )
 }
 
-function CasinoHome({ selected, onSelect, onPlay, onTournament, onStats, onProfile, onPartner, partnerName, user, authBusy, onAuth }: {
+function CasinoHome({ selected, onSelect, onPlay, onRules, onTournament, onStats, onProfile, onPartner, partnerName, user, authBusy, onAuth }: {
   selected: Game
   onSelect: (game: Game) => void
   onPlay: (game: Game) => void
+  onRules: (game: CatalogGame) => void
   onTournament: () => void
   onStats: () => void
   onProfile: () => void
@@ -114,13 +116,6 @@ function CasinoHome({ selected, onSelect, onPlay, onTournament, onStats, onProfi
   authBusy: boolean
   onAuth: () => void
 }) {
-  const categories = [
-    { name: 'Carte francesi', games: [games[3], games[1]] },
-    { name: 'Carte da briscola', games: [games[0]] },
-    { name: 'Carte UNO', games: [games[2]] },
-    { name: 'Dadi', games: [games[4]] },
-  ]
-
   return <div className="casino-rim"><section className="casino-felt">
     <header className="casino-bar">
       <a className="casino-logo" href="/" aria-label="CardlyHub, pagina iniziale">CardlyHub</a>
@@ -133,31 +128,57 @@ function CasinoHome({ selected, onSelect, onPlay, onTournament, onStats, onProfi
 
     <div className="casino-hero">
       <p>Sala da gioco</p>
-      <h1>Un tavolo per due.<br />Scegli il gioco.</h1>
-      <span>Scegli un gioco, apri il tavolo e invita il tuo partner.</span>
+      <h1>Quattro mazzi.<br />Una sala intera.</h1>
+      <span>Scegli una famiglia, apri le regole con ? e invita il tuo partner.</span>
     </div>
 
-    <div className="casino-categories" role="group" aria-label="Scegli il gioco">
-      {categories.map((category) => <section className="casino-category" data-count={category.games.length} style={{ '--count': category.games.length } as React.CSSProperties} key={category.name}>
-        <h2>{category.name}</h2>
-        <div>
-          {category.games.map((game) => <button className="casino-spot" key={game.id} aria-pressed={selected.id === game.id} onClick={() => onSelect(game)}>
-            <span className="casino-chip">Scelto</span>
-            <GameArt game={game} />
-            <span className="casino-game-name">{game.name}</span>
-          </button>)}
-        </div>
-      </section>)}
+    <div className="catalog" aria-label="Catalogo dei giochi">
+      {families.map((family) => {
+        const primary = catalog.filter((game) => game.family === family.id && game.primary)
+        const derived = catalog.filter((game) => game.family === family.id && !game.primary)
+        return <section className="catalog-family" key={family.id}>
+          <header><div><h2>{family.name}</h2><p>{family.note}</p></div><span>{primary.length + derived.length} giochi</span></header>
+          <div className="catalog-primary">
+            {primary.map((entry) => {
+              const game = games.find((item) => item.id === entry.playId)!
+              return <div className="catalog-main-card" key={entry.id}>
+                <button className="casino-spot" aria-pressed={selected.id === game.id} onClick={() => onSelect(game)}>
+                  <span className="casino-chip">Scelto</span><GameArt game={game} /><span className="catalog-kind">Gioco principale</span><span className="casino-game-name">{entry.name}</span>
+                </button>
+                <button className="rule-help" onClick={() => onRules(entry)} aria-label={`Regole di ${entry.name}`}>?</button>
+              </div>
+            })}
+          </div>
+          <div className="catalog-derived" aria-label={`Altri giochi con ${family.name}`}>
+            {derived.map((entry) => <button key={entry.id} onClick={() => onRules(entry)}><span>{entry.name}</span><small>In sviluppo</small><i aria-hidden="true">?</i></button>)}
+          </div>
+        </section>
+      })}
     </div>
 
     <footer className="casino-dock">
-      <div>
-        <button className="casino-main" onClick={() => onPlay(selected)}>Gioca a {selected.name}</button>
-        <button className="casino-line" onClick={onTournament}>Crea torneo</button>
-      </div>
-      <p>Statistiche attive · Tornei al meglio di 3, 5 o 7 · Inviti diretti</p>
+      <div><button className="casino-main" onClick={() => onPlay(selected)}>Gioca a {selected.name}</button><button className="casino-line" onClick={onTournament}>Crea torneo</button></div>
+      <p>Regole sempre consultabili · Tornei personalizzati · Due account, due schermi</p>
     </footer>
   </section></div>
+}
+
+function RulesModal({ game, onClose }: { game: CatalogGame; onClose: () => void }) {
+  const family = families.find((item) => item.id === game.family)!
+  return <div className="room-overlay" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+    <section className="room-modal rules-modal">
+      <button className="room-close" onClick={onClose} aria-label="Chiudi">×</button>
+      <p className="status"><i /> Regole · {family.name}</p>
+      <h2 id="rules-title">{game.name}</h2>
+      <ol>{game.rules.map((rule) => <li key={rule}>{rule}</li>)}</ol>
+      {game.options?.map((option) => <section className="rules-option" key={option.key}>
+        <h3>{option.label}</h3>
+        <div>{option.values.map((value) => <span className={value === option.defaultValue ? 'is-default' : ''} key={value}>{value}</span>)}</div>
+        <p>Predefinita: <b>{option.defaultValue}</b></p>
+      </section>)}
+      {!game.primary && <p className="rules-coming">Questo gioco verrà aggiunto nei prossimi blocchi del catalogo.</p>}
+    </section>
+  </div>
 }
 
 function ProfileModal({ user, deck, onDeck, onClose, onSignOut }: { user: User; deck: DeckStyle; onDeck: (deck: DeckStyle) => void; onClose: () => void; onSignOut: () => void }) {
@@ -313,6 +334,7 @@ function App() {
   const [stats, setStats] = useState<Stats>(loadStats)
   const [profileOpen, setProfileOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [rulesGame, setRulesGame] = useState<CatalogGame | null>(null)
   const [tournamentSetupOpen, setTournamentSetupOpen] = useState(false)
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [pairId, setPairId] = useState<string | null>(null)
@@ -492,6 +514,7 @@ function App() {
       selected={selectedGame}
       onSelect={setSelectedGame}
       onPlay={(game) => void play(game)}
+      onRules={setRulesGame}
       onTournament={() => setTournamentSetupOpen(true)}
       onStats={() => setStatsOpen(true)}
       onProfile={() => setProfileOpen(true)}
@@ -501,6 +524,7 @@ function App() {
       authBusy={authBusy}
       onAuth={() => void toggleAuth()}
     />
+    {rulesGame && <RulesModal game={rulesGame} onClose={() => setRulesGame(null)} />}
     {profileOpen && user && <ProfileModal user={user} deck={deckPreference} onDeck={changeDeckPreference} onClose={() => setProfileOpen(false)} onSignOut={() => { setProfileOpen(false); void toggleAuth() }} />}
     {tournamentSetupOpen && <TournamentSetup onClose={() => setTournamentSetupOpen(false)} onStart={createTournament} />}
     {statsOpen && <StatsModal stats={stats} names={[user?.displayName?.split(' ')[0] || 'Tomas', partner?.name.split(' ')[0] || 'Giulia']} onClose={() => setStatsOpen(false)} />}
