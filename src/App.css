@@ -51,7 +51,7 @@ a { text-decoration: none; }
 .main-action { padding: 14px 19px; border: 0; border-radius: 7px; color: white; background: var(--purple); box-shadow: 4px 4px 0 var(--ink); font: 800 12px inherit; white-space: nowrap; }
 .plain-action { padding: 9px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; font: 800 12px inherit; }
 
-/* Supabase room lobby */
+/* Partner pairing and invitations */
 .room-overlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; color: var(--ink); background: rgb(23 21 43 / 72%); backdrop-filter: blur(8px); }
 .room-modal { position: relative; width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow: auto; padding: 34px; border: 2px solid var(--ink); border-radius: 18px; background: var(--paper); box-shadow: 9px 10px 0 var(--coral); }
 .room-modal h2 { margin: 0; font-size: clamp(35px, 7vw, 52px); letter-spacing: -.06em; }
@@ -61,6 +61,8 @@ a { text-decoration: none; }
 .room-modal label { display: grid; gap: 7px; font-size: 11px; font-weight: 850; }
 .room-modal input, .room-modal select { width: 100%; padding: 13px; border: 1.5px solid var(--ink); border-radius: 7px; color: var(--ink); background: white; font: 700 15px inherit; }
 .room-modal form .main-action { width: 100%; }
+.partner-action { width: 100%; margin-top: 18px; }
+.partner-link { letter-spacing: 0; }
 .room-modal button:disabled { cursor: wait; opacity: .6; }
 .room-code-input { text-transform: uppercase; letter-spacing: .25em; }
 .room-switch { margin-top: 18px; padding: 4px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; font: 750 11px inherit; }

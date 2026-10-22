@@ -11,7 +11,7 @@ npm run dev
 
 ## Firebase
 
-L'app usa Google Authentication, accesso anonimo per gli ospiti e Firestore per profili, preferenze e stanze. Copia `.env.example` in `.env.local` e inserisci la configurazione dell'app Web Firebase. Nella Firebase Console abilita i provider **Google** e **Anonimo**.
+L'app usa Google Authentication e Firestore per profili, abbinamento dei due account, inviti e partite online. Copia `.env.example` in `.env.local` e inserisci la configurazione dell'app Web Firebase. Nella Firebase Console abilita il provider **Google**.
 
 Crea il database Firestore dalla Firebase Console, poi pubblica le regole:
 

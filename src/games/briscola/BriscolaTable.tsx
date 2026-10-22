@@ -55,11 +55,15 @@ function Pile({ n, deck, mine = false }: { n: number; deck: DeckStyle; mine?: bo
   )
 }
 
-export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: () => void; deck: DeckStyle; onDeckChange: (deck: DeckStyle) => void }) {
+type OnlineGame = { userId: string; hostId: string; state: GameState; onState: (state: GameState) => void }
+
+export default function BriscolaTable({ onBack, deck, onDeckChange, online }: { onBack: () => void; deck: DeckStyle; onDeckChange: (deck: DeckStyle) => void; online?: OnlineGame }) {
   const wide = useWide()
-  const [game, setGame] = useState<GameState>(deal)
-  const [viewer, setViewer] = useState(game.turn)        // chi sta guardando lo schermo
-  const [cover, setCover] = useState<number | null>(game.turn) // a chi passare il telefono (null = nessuno)
+  const [localGame, setLocalGame] = useState<GameState>(deal)
+  const game = online?.state ?? localGame
+  const onlinePlayer = online ? (online.userId === online.hostId ? 0 : 1) : null
+  const [viewer, setViewer] = useState(onlinePlayer ?? game.turn) // chi sta guardando lo schermo
+  const [cover, setCover] = useState<number | null>(online ? null : game.turn) // a chi passare il telefono (null = nessuno)
   const [busy, setBusy] = useState(false)                // presa completa in attesa di essere raccolta
   const [taker, setTaker] = useState<number | null>(null)
   const [freshId, setFreshId] = useState<number | null>(null)
@@ -70,7 +74,11 @@ export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: 
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
-  const me = viewer
+  const saveGame = (state: GameState) => {
+    if (online) online.onState(state)
+    else setLocalGame(state)
+  }
+  const me = onlinePlayer ?? viewer
   const op = 1 - me
   const trump = game.trump.s
   const over = game.phase === 'over'
@@ -120,10 +128,10 @@ export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: 
     const r = apply(game, { type: 'play', card: card.id })
     if ('error' in r) { console.error('Briscola:', r.error); return }
     const s = r.state
-    setGame(s)
+    saveGame(s)
     setFreshId(card.id)
     later(() => setFreshId(null), 400)
-    if (s.table.length === 1) { setCover(s.turn); return } // chi risponde deve prima ricevere il telefono
+    if (s.table.length === 1) { if (!online) setCover(s.turn); return } // in locale si passa il telefono
     const w = trickWinner(s.table, s.trump.s)
     setBusy(true)
     setTaker(w)
@@ -132,10 +140,10 @@ export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: 
       if ('error' in c) { console.error('Briscola:', c.error); return }
       const l = 1 - w
       drawn.current = [w, l].filter((p) => c.state.hands[p].length > s.hands[p].length) // pesca prima chi ha preso
-      setGame(c.state)
+      saveGame(c.state)
       setBusy(false)
       setTaker(null)
-      if (c.state.phase === 'playing' && c.state.turn !== me) setCover(c.state.turn)
+      if (!online && c.state.phase === 'playing' && c.state.turn !== me) setCover(c.state.turn)
     }), 1100)
   }
 
@@ -143,7 +151,7 @@ export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: 
     timers.current.forEach(clearTimeout)
     const g = deal()
     drawn.current = null
-    setGame(g); setViewer(g.turn); setCover(g.turn); setBusy(false); setTaker(null); setFreshId(null)
+    saveGame(g); setViewer(g.turn); setCover(online ? null : g.turn); setBusy(false); setTaker(null); setFreshId(null)
   }
 
   function leave() {
@@ -168,8 +176,8 @@ export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: 
     <div className="bk-screen">
       <div ref={root} className={`bk${wide ? ' bk-wide' : ''}`}>
         <div className="bk-hud">
-          <div className={`bk-av${me === 1 ? ' bk-lei' : ''}`}>{NAMES[me][0]}</div>
-          <div className="bk-who"><b>{NAMES[me]}</b><span>{over ? 'Partita finita' : game.turn === me ? 'Tocca a te' : `Tocca a ${NAMES[op]}`}</span></div>
+          <div className={`bk-av${me === 1 ? ' bk-lei' : ''}`}>{game.names[me][0]}</div>
+          <div className="bk-who"><b>{game.names[me]}</b><span>{over ? 'Partita finita' : game.turn === me ? 'Tocca a te' : `Tocca a ${game.names[op]}`}</span></div>
           <span className="bk-sp" />
           <select className="bk-pill bk-deck" aria-label="Stile del mazzo" value={deck} onChange={(event) => onDeckChange(event.target.value as DeckStyle)}>
             <option value="napoletane">Napoletane</option><option value="trevigiane">Trevigiane</option>
@@ -211,17 +219,17 @@ export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: 
 
         {cover !== null && (
           <div className="bk-ov" role="dialog" aria-modal="true" aria-label="Passa il telefono">
-            <div className={`bk-av bk-big${cover === 1 ? ' bk-lei' : ''}`}>{NAMES[cover][0]}</div>
-            <h3>Passa il telefono a {NAMES[cover]}</h3>
-            <p>Le carte restano coperte finché {NAMES[cover]} non tocca il pulsante.</p>
-            <button className="bk-btn" onClick={() => { setViewer(cover); setCover(null) }}>Sono {NAMES[cover]}</button>
+            <div className={`bk-av bk-big${cover === 1 ? ' bk-lei' : ''}`}>{game.names[cover][0]}</div>
+            <h3>Passa il telefono a {game.names[cover]}</h3>
+            <p>Le carte restano coperte finché {game.names[cover]} non tocca il pulsante.</p>
+            <button className="bk-btn" onClick={() => { setViewer(cover); setCover(null) }}>Sono {game.names[cover]}</button>
           </div>
         )}
 
         {over && (
           <div className="bk-ov" role="dialog" aria-modal="true" aria-label="Fine partita">
-            <h3>{win === -1 ? 'Pareggio, 60 a 60' : `Vince ${NAMES[win ?? 0]}`}</h3>
-            <div className="bk-res"><div>{sc[0]}<small>{NAMES[0]}</small></div><div>{sc[1]}<small>{NAMES[1]}</small></div></div>
+            <h3>{win === -1 ? 'Pareggio, 60 a 60' : `Vince ${game.names[win ?? 0]}`}</h3>
+            <div className="bk-res"><div>{sc[0]}<small>{game.names[0]}</small></div><div>{sc[1]}<small>{game.names[1]}</small></div></div>
             <p>{win === -1 ? 'Servivano più di 60 punti su 120 per vincere.' : 'Servono più di 60 punti su 120 per vincere.'}</p>
             <button className="bk-btn" onClick={again}>Altra partita</button>
             <button className="bk-btn bk-ghost" onClick={onBack}>Esci</button>
