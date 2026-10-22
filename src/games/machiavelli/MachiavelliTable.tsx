@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './machiavelli.css'
 import { apply, buildDeck, describe, newGame, playedCount, shuffle } from './engine.ts'
 import type { Action, Card, GameState } from './engine.ts'
+import type { GameResult } from '../../lib/game-result.ts'
 
 // Tavolo di Machiavelli (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri").
 // Le regole vivono tutte in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, animazioni.
@@ -76,7 +77,7 @@ function Pile({ count, ready, label, onClick }: { count: number; ready: boolean;
 type Drop = { kind: 'group'; id: number } | { kind: 'new' } | { kind: 'hand'; before: number | null } | { kind: 'bad' } | null
 const dropKey = (d: Drop) => (d ? JSON.stringify(d) : '')
 
-export default function MachiavelliTable({ onBack, onResult }: { onBack: () => void; onResult?: (winner: number | null) => void }) {
+export default function MachiavelliTable({ onBack, onResult }: { onBack: () => void; onResult?: (result: GameResult) => void }) {
   const wide = useWide()
   const [names, setNames] = useState<[string, string]>(loadNames)
   const [jokers, setJokers] = useState(true)
@@ -105,7 +106,7 @@ export default function MachiavelliTable({ onBack, onResult }: { onBack: () => v
 
   useEffect(() => {
     if (game?.phase !== 'over') { reported.current = false; return }
-    if (!reported.current) { reported.current = true; onResult?.(game.winner) }
+    if (!reported.current) { reported.current = true; onResult?.({ winner: game.winner }) }
   }, [game, onResult])
 
   const hand = useMemo(() => (game ? sortHand(game.hands[game.turn], sort, order) : []), [game, sort, order])

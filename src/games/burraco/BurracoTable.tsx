@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './burraco.css'
 import { DEFAULT_RULES, actionError, apply, buildDeck, burraco, isWildCard, newGame, shortName, shuffle, tablePoints, topCard } from './engine.ts'
 import type { Action, BurracoEvent, Card, End, GameState, Meld, Rules } from './engine.ts'
+import type { GameResult } from '../../lib/game-result.ts'
 
 // Tavolo di Burraco (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri", nessun bot).
 // Le regole e i punti vivono tutti in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, pannelli.
@@ -110,7 +111,7 @@ function MeldView({ m, side, rules }: { m: Meld; side: 'mine' | 'her'; rules: Ru
 type Over = { meld?: HTMLElement | null; zone?: HTMLElement | null; dis?: HTMLElement | null; hand?: HTMLElement | null }
 type Aim = { el?: Element | null; bad?: boolean; msg?: string; ins?: { x: number; y: number; h: number } | null }
 
-export default function BurracoTable({ onBack, onResult }: { onBack: () => void; onResult?: (winner: number | null) => void }) {
+export default function BurracoTable({ onBack, onResult }: { onBack: () => void; onResult?: (result: GameResult) => void }) {
   const wide = useWide()
   const [game, setGame] = useState<GameState>(() => newMatch(DEFAULT_RULES).game)
   const [started, setStarted] = useState(false)
@@ -135,7 +136,13 @@ export default function BurracoTable({ onBack, onResult }: { onBack: () => void;
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
   useEffect(() => {
     if (!game.matchOver) { reported.current = false; return }
-    if (!reported.current) { reported.current = true; onResult?.(game.winner) }
+    if (!reported.current) {
+      reported.current = true
+      const scores: [number, number] = game.rules.mode === 'hand'
+        ? [game.handScores[0].total, game.handScores[1].total]
+        : [game.scores[0], game.scores[1]]
+      onResult?.({ winner: game.winner, scores })
+    }
   }, [game, onResult])
 
   const me = viewer

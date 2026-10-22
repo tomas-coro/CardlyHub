@@ -6,3 +6,8 @@ export function randomTournamentGame<T>(games: readonly T[], random = Math.rando
   if (!games.length) throw new Error('Scegli almeno un gioco per il torneo.')
   return games[Math.floor(random() * games.length)]
 }
+
+export function tournamentGame<T>(games: readonly T[], round: number, mode: 'random' | 'ordered', random = Math.random): T {
+  if (!games.length) throw new Error('Scegli almeno un gioco per il torneo.')
+  return mode === 'random' ? randomTournamentGame(games, random) : games[(round - 1) % games.length]
+}

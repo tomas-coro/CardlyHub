@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './briscola.css'
 import { apply, buildDeck, cardName, newGame, score, shuffle, trickWinner, winner } from './engine.ts'
 import type { Card, GameState, Suit } from './engine.ts'
+import type { GameResult } from '../../lib/game-result.ts'
 import napoletaneBack from '../../assets/cards/backs/napoletane-back.svg'
 import trevigianeBack from '../../assets/cards/backs/trevigiane-back.svg'
 
@@ -57,7 +58,7 @@ function Pile({ n, deck, mine = false }: { n: number; deck: DeckStyle; mine?: bo
 
 type OnlineGame = { userId: string; hostId: string; state: GameState; onState: (state: GameState) => void }
 
-export default function BriscolaTable({ onBack, onResult, deck, online }: { onBack: () => void; onResult?: (winner: number | null) => void; deck: DeckStyle; online?: OnlineGame }) {
+export default function BriscolaTable({ onBack, onResult, deck, online }: { onBack: () => void; onResult?: (result: GameResult) => void; deck: DeckStyle; online?: OnlineGame }) {
   const wide = useWide()
   const [localGame, setLocalGame] = useState<GameState>(deal)
   const game = online?.state ?? localGame
@@ -76,7 +77,10 @@ export default function BriscolaTable({ onBack, onResult, deck, online }: { onBa
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
   useEffect(() => {
     if (game.phase !== 'over') { reported.current = false; return }
-    if (!reported.current) { reported.current = true; onResult?.(winner(game) === -1 ? null : winner(game)) }
+    if (!reported.current) {
+      reported.current = true
+      onResult?.({ winner: winner(game) === -1 ? null : winner(game), scores: [score(game, 0), score(game, 1)] })
+    }
   }, [game, onResult])
 
   const saveGame = (state: GameState) => {

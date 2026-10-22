@@ -137,10 +137,16 @@ a { text-decoration: none; }
 .profile-signout { width: 100%; min-height: 44px; margin-top: 10px; border: 1px solid #9b2d25; border-radius: 999px; color: #9b2d25; background: transparent; font-weight: 700; }
 .stats-total { display: flex; align-items: baseline; gap: 10px; padding: 16px 0; border-bottom: 1px solid rgb(23 21 43 / 20%); }
 .stats-total b { font: 400 3.4rem "Gloock", serif; }
-.stats-list { display: grid; gap: 2px; margin: 12px 0; }
-.stats-list > div { display: grid; grid-template-columns: 1fr auto 90px; align-items: center; gap: 12px; padding: 9px 0; }
-.stats-list b { font-size: 1.25rem; }
-.stats-list small { opacity: .6; text-align: right; }
+.stats-modal { width: min(100%, 650px); }
+.stats-head, .stats-list > div { display: grid; grid-template-columns: 1.25fr .65fr 1fr 1fr; align-items: center; gap: 10px; }
+.stats-head { padding: 12px 0 5px; font-size: .66rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .55; }
+.stats-list { display: grid; gap: 2px; margin-bottom: 12px; }
+.stats-list > div { padding: 10px 0; border-top: 1px solid rgb(23 21 43 / 12%); }
+.stats-list > div span:not(:first-child) { font-variant-numeric: tabular-nums; }
+.tournament-games { display: grid; }
+.tournament-games > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+.tournament-games > div span { display: flex; gap: 5px; }
+.tournament-games > div button { min-width: 38px; padding: 0 10px; }
 .stats-tournaments { display: flex; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid rgb(23 21 43 / 20%); }
 .tournament-panel { min-height: calc(100dvh - 28px); align-items: center; justify-content: center; gap: 18px; text-align: center; }
 .tournament-exit { position: absolute; top: 26px; left: clamp(18px, 4vw, 64px); }
@@ -180,7 +186,7 @@ a { text-decoration: none; }
   .casino-dock p { display: none; }
   .casino-bar nav .casino-line:first-child { padding-inline: 10px; }
   .setup-modal { padding: 28px 22px; }
-  .stats-list > div { grid-template-columns: 1fr auto 78px; }
+  .stats-head, .stats-list > div { grid-template-columns: 1fr .65fr 1fr .9fr; gap: 6px; font-size: .75rem; }
   .stats-tournaments { flex-direction: column; }
   .tournament-score div { flex-direction: column; gap: 0; }
   .tournament-score div:last-child { flex-direction: column-reverse; }

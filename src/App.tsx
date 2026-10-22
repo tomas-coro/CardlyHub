@@ -10,13 +10,15 @@ import UnoTable from './games/uno/UnoTable'
 import BurracoTable from './games/burraco/BurracoTable'
 import { UnoFace } from './games/uno/UnoFace.tsx'
 import denari7 from './assets/cards/napoletane/denari-07.jpg'
-import spade3 from './assets/cards/napoletane/spade-03.jpg'
+import coppe3 from './assets/cards/napoletane/coppe-03.jpg'
 import spade1 from './assets/cards/napoletane/spade-01.jpg'
 import { auth, db } from './lib/firebase.ts'
 import { acceptInvite, acceptPair, closeInvite, createPair, invitePartner, loadPairId, subscribeInvite, subscribePair, updateInviteState } from './lib/partner.ts'
 import type { InviteSnapshot, PairSnapshot } from './lib/partner.ts'
 import { partnerOf } from './lib/partner-domain.ts'
-import { randomTournamentGame, winsNeeded, type BestOf } from './lib/tournament.ts'
+import { tournamentGame, winsNeeded, type BestOf } from './lib/tournament.ts'
+import type { GameResult } from './lib/game-result.ts'
+import { addResult, emptyGameStat, type GameStat } from './lib/statistics.ts'
 import { buildDeck as buildBriscolaDeck, newGame as newBriscolaGame, shuffle as shuffleBriscola } from './games/briscola/engine.ts'
 import type { GameState as BriscolaState } from './games/briscola/engine.ts'
 
@@ -30,8 +32,8 @@ const games = [
 
 type Game = typeof games[number]
 type GameId = Game['id']
-type Stats = { started: Partial<Record<GameId, number>>; completed: Partial<Record<GameId, number>>; tournaments: number; tournamentWins: number }
-type Tournament = { bestOf: BestOf; games: GameId[]; round: number; current: GameId; wins: [number, number]; result: boolean }
+type Stats = { games: Partial<Record<GameId, GameStat>>; tournaments: number; tournamentWins: number }
+type Tournament = { bestOf: BestOf; games: GameId[]; mode: 'random' | 'ordered'; round: number; current: GameId; wins: [number, number]; result: boolean }
 const defaultRecents = games.map(({ id }) => id)
 const competitiveGames = games.filter((game) => game.id !== 'dadi')
 
@@ -53,9 +55,16 @@ function loadRecents() {
 function loadStats(): Stats {
   try {
     const saved = JSON.parse(localStorage.getItem('cardly-stats') ?? 'null')
-    if (saved?.started && saved?.completed) return { tournaments: 0, tournamentWins: 0, ...saved }
+    if (saved?.games) return { tournaments: 0, tournamentWins: 0, ...saved }
+    if (saved?.started) {
+      return {
+        tournaments: saved.tournaments ?? 0,
+        tournamentWins: saved.tournamentWins ?? 0,
+        games: Object.fromEntries(games.map(({ id }) => [id, { ...emptyGameStat(), started: saved.started[id] ?? 0, completed: saved.completed?.[id] ?? 0 }])),
+      }
+    }
   } catch { /* use empty statistics */ }
-  return { started: {}, completed: {}, tournaments: 0, tournamentWins: 0 }
+  return { games: {}, tournaments: 0, tournamentWins: 0 }
 }
 
 function GameArt({ game }: { game: Game }) {
@@ -69,7 +78,7 @@ function GameArt({ game }: { game: Game }) {
   if (game.id === 'briscola') return (
     <div className="game-symbol briscola" aria-hidden="true">
       <img className="card real" src={denari7} alt="" />
-      <img className="card real" src={spade3} alt="" />
+      <img className="card real" src={coppe3} alt="" />
       <img className="card real" src={spade1} alt="" />
     </div>
   )
@@ -77,7 +86,7 @@ function GameArt({ game }: { game: Game }) {
   // Carte francesi: simboli dello sprite svg-cards (public/cards/french), una <use> per carta
   if (game.id === 'machiavelli' || game.id === 'burraco') return (
     <div className={`game-symbol ${game.id}`} aria-hidden="true">
-      {(game.id === 'burraco' ? ['spade_2', 'heart_queen', 'joker_black'] : ['club_1', 'diamond_3', 'spade_10']).map((id) => (
+      {(game.id === 'burraco' ? ['spade_2', 'heart_queen', 'joker_black'] : ['club_1', 'diamond_3', 'heart_10']).map((id) => (
         <svg key={id} className="card real" viewBox="0 0 169.075 244.64"><use href={`/cards/french/svg-cards.svg#${id}`} /></svg>
       ))}
     </div>
@@ -167,33 +176,53 @@ function ProfileModal({ user, deck, onDeck, onClose, onSignOut }: { user: User; 
   </div>
 }
 
-function TournamentSetup({ onClose, onStart }: { onClose: () => void; onStart: (bestOf: BestOf, selected: GameId[]) => void }) {
+function TournamentSetup({ onClose, onStart }: { onClose: () => void; onStart: (bestOf: BestOf, selected: GameId[], mode: Tournament['mode']) => void }) {
   const [bestOf, setBestOf] = useState<BestOf>(3)
+  const [mode, setMode] = useState<Tournament['mode']>('random')
   const [selected, setSelected] = useState<GameId[]>(competitiveGames.map((game) => game.id))
   const toggle = (id: GameId) => setSelected((current) => current.includes(id) ? current.filter((game) => game !== id) : [...current, id])
+  const move = (index: number, by: -1 | 1) => setSelected((current) => {
+    const next = [...current], target = index + by
+    if (target < 0 || target >= next.length) return current
+    ;[next[index], next[target]] = [next[target], next[index]]
+    return next
+  })
   return <div className="room-overlay" role="dialog" aria-modal="true" aria-labelledby="tournament-title">
     <section className="room-modal setup-modal">
       <button className="room-close" onClick={onClose} aria-label="Chiudi">×</button>
       <p className="status"><i /> Modalità torneo</p>
       <h2 id="tournament-title">Crea il torneo</h2>
       <fieldset className="setup-options"><legend>Formula</legend>{([3, 5, 7] as BestOf[]).map((n) => <button key={n} aria-pressed={bestOf === n} onClick={() => setBestOf(n)}>Meglio di {n}</button>)}</fieldset>
-      <fieldset className="setup-options"><legend>Giochi casuali tra</legend>{competitiveGames.map((game) => <button key={game.id} aria-pressed={selected.includes(game.id)} onClick={() => toggle(game.id)}>{game.name}</button>)}</fieldset>
-      <p>Ogni round sceglie casualmente uno dei giochi selezionati. Vince chi arriva per primo a {winsNeeded(bestOf)} vittorie.</p>
-      <button className="main-action partner-action" disabled={!selected.length} onClick={() => onStart(bestOf, selected)}>Crea torneo</button>
+      <fieldset className="setup-options"><legend>Scelta dei giochi</legend><button aria-pressed={mode === 'random'} onClick={() => setMode('random')}>Casuali</button><button aria-pressed={mode === 'ordered'} onClick={() => setMode('ordered')}>Scelgo io l’ordine</button></fieldset>
+      {mode === 'random'
+        ? <fieldset className="setup-options"><legend>Estrai tra</legend>{competitiveGames.map((game) => <button key={game.id} aria-pressed={selected.includes(game.id)} onClick={() => toggle(game.id)}>{game.name}</button>)}</fieldset>
+        : <fieldset className="setup-options tournament-games"><legend>Ordine dei round</legend>
+          {selected.map((id, index) => <div key={id}><b>{index + 1}. {games.find((game) => game.id === id)?.name}</b><span><button disabled={index === 0} onClick={() => move(index, -1)} aria-label="Sposta su">↑</button><button disabled={index === selected.length - 1} onClick={() => move(index, 1)} aria-label="Sposta giù">↓</button><button onClick={() => toggle(id)} aria-label="Rimuovi">×</button></span></div>)}
+          {competitiveGames.filter((game) => !selected.includes(game.id)).map((game) => <button key={game.id} onClick={() => toggle(game.id)}>+ {game.name}</button>)}
+        </fieldset>}
+      <p>{mode === 'random' ? 'Ogni round estrae uno dei giochi selezionati.' : 'I giochi seguono questo ordine e ricominciano dal primo se servono altri round.'} Vince chi arriva per primo a {winsNeeded(bestOf)} vittorie.</p>
+      <button className="main-action partner-action" disabled={!selected.length} onClick={() => onStart(bestOf, selected, mode)}>Crea torneo</button>
     </section>
   </div>
 }
 
-function StatsModal({ stats, onClose }: { stats: Stats; onClose: () => void }) {
-  const total = Object.values(stats.started).reduce((sum, count) => sum + (count ?? 0), 0)
+function StatsModal({ stats, names, onClose }: { stats: Stats; names: [string, string]; onClose: () => void }) {
+  const all = games.map(({ id }) => stats.games[id] ?? emptyGameStat())
+  const total = all.reduce((sum, item) => sum + item.started, 0)
+  const wins = all.reduce<[number, number]>((sum, item) => [sum[0] + item.wins[0], sum[1] + item.wins[1]], [0, 0])
   return <div className="room-overlay" role="dialog" aria-modal="true" aria-labelledby="stats-title">
-    <section className="room-modal setup-modal">
+    <section className="room-modal setup-modal stats-modal">
       <button className="room-close" onClick={onClose} aria-label="Chiudi">×</button>
       <p className="status"><i /> Statistiche attive</p>
-      <h2 id="stats-title">Le vostre partite</h2>
-      <div className="stats-total"><b>{total}</b><span>partite avviate</span></div>
-      <div className="stats-list">{games.map((game) => <div key={game.id}><span>{game.name}</span><b>{stats.started[game.id] ?? 0}</b><small>{stats.completed[game.id] ?? 0} concluse</small></div>)}</div>
-      <div className="stats-tournaments"><span>Tornei giocati <b>{stats.tournaments}</b></span><span>Vinti da Tomas <b>{stats.tournamentWins}</b></span></div>
+      <h2 id="stats-title">{names[0]} vs {names[1]}</h2>
+      <div className="stats-total"><b>{wins[0]}–{wins[1]}</b><span>vittorie totali · {total} partite avviate</span></div>
+      <div className="stats-head"><span>Gioco</span><span>Partite</span><span>Vittorie</span><span>Media punti</span></div>
+      <div className="stats-list">{games.map((game) => {
+        const item = stats.games[game.id] ?? emptyGameStat()
+        const average = item.pointGames ? `${Math.round(item.points[0] / item.pointGames)}–${Math.round(item.points[1] / item.pointGames)}` : '—'
+        return <div key={game.id}><b>{game.name}</b><span>{item.completed}/{item.started}</span><span>{item.wins[0]}–{item.wins[1]}{item.draws ? ` · ${item.draws} pari` : ''}</span><span>{average}</span></div>
+      })}</div>
+      <div className="stats-tournaments"><span>Tornei giocati <b>{stats.tournaments}</b></span><span>Vinti da {names[0]} <b>{stats.tournamentWins}</b></span></div>
     </section>
   </div>
 }
@@ -206,8 +235,8 @@ function TournamentPanel({ tournament, onPlay, onStop }: { tournament: Tournamen
     <button className="casino-line tournament-exit" onClick={onStop}>Termina torneo</button>
     <p className="tournament-kicker">Al meglio di {tournament.bestOf}</p>
     <h1>{champion < 0 ? `Round ${tournament.round}` : 'Torneo concluso'}</h1>
-    <div className="tournament-score"><div><span>Tomas</span><b>{tournament.wins[0]}</b></div><i>—</i><div><b>{tournament.wins[1]}</b><span>Lei</span></div></div>
-    {champion < 0 ? <><p>Gioco estratto</p><h2>{game.name}</h2><button className="casino-main" onClick={onPlay}>Gioca il round</button></> : <><h2>Vince {champion === 0 ? 'Tomas' : 'Lei'}!</h2><button className="casino-main" onClick={onStop}>Torna alla sala</button></>}
+    <div className="tournament-score"><div><span>Tomas</span><b>{tournament.wins[0]}</b></div><i>—</i><div><b>{tournament.wins[1]}</b><span>Giulia</span></div></div>
+    {champion < 0 ? <><p>{tournament.mode === 'random' ? 'Gioco estratto' : 'Gioco scelto'}</p><h2>{game.name}</h2><button className="casino-main" onClick={onPlay}>Gioca il round</button></> : <><h2>Vince {champion === 0 ? 'Tomas' : 'Giulia'}!</h2><button className="casino-main" onClick={onStop}>Torna alla sala</button></>}
   </section></div>
 }
 
@@ -373,7 +402,10 @@ function App() {
   }
 
   function countStarted(id: GameId) {
-    saveStats((current) => ({ ...current, started: { ...current.started, [id]: (current.started[id] ?? 0) + 1 } }))
+    saveStats((current) => {
+      const item = current.games[id] ?? emptyGameStat()
+      return { ...current, games: { ...current.games, [id]: { ...item, started: item.started + 1 } } }
+    })
   }
 
   function changeDeckPreference(deck: DeckStyle) {
@@ -403,8 +435,8 @@ function App() {
     setPartnerOpen(true)
   }
 
-  function createTournament(bestOf: BestOf, selected: GameId[]) {
-    setTournament({ bestOf, games: selected, round: 1, current: randomTournamentGame(selected), wins: [0, 0], result: false })
+  function createTournament(bestOf: BestOf, selected: GameId[], mode: Tournament['mode']) {
+    setTournament({ bestOf, games: selected, mode, round: 1, current: tournamentGame(selected, 1, mode), wins: [0, 0], result: false })
     setTournamentSetupOpen(false)
   }
 
@@ -414,11 +446,14 @@ function App() {
     setOpenGame(tournament.current)
   }
 
-  function recordResult(id: GameId, winner: number | null) {
-    saveStats((current) => ({ ...current, completed: { ...current.completed, [id]: (current.completed[id] ?? 0) + 1 } }))
+  function recordResult(id: GameId, result: GameResult) {
+    saveStats((current) => {
+      const item = current.games[id] ?? emptyGameStat()
+      return { ...current, games: { ...current.games, [id]: addResult(item, result) } }
+    })
     if (!tournament || tournament.result || tournament.current !== id) return
     const wins: [number, number] = [...tournament.wins]
-    if (winner !== null) wins[winner]++
+    if (result.winner !== null) wins[result.winner]++
     const finished = wins.some((score) => score >= winsNeeded(tournament.bestOf))
     setTournament({ ...tournament, wins, result: true })
     if (finished) saveStats((current) => ({ ...current, tournaments: current.tournaments + 1, tournamentWins: current.tournamentWins + (wins[0] >= winsNeeded(tournament.bestOf) ? 1 : 0) }))
@@ -427,7 +462,9 @@ function App() {
   function leaveGame() {
     setOpenGame(null)
     if (tournament?.result && !tournament.wins.some((score) => score >= winsNeeded(tournament.bestOf))) {
-      setTournament({ ...tournament, round: tournament.round + 1, current: randomTournamentGame(tournament.games), result: false })
+      const nextRound = tournament.round + 1
+      const current = tournamentGame(tournament.games, nextRound, tournament.mode)
+      setTournament({ ...tournament, round: nextRound, current, result: false })
     }
   }
 
@@ -439,7 +476,7 @@ function App() {
   if (openGame === 'dadi') return <main><DadiTable onBack={leaveGame} /></main>
   if (openGame === 'briscola' && !tournament && user && pairId && invite?.status === 'accepted') return <main><BriscolaTable
     onBack={() => void leaveOnlineGame()}
-    onResult={(winner) => recordResult('briscola', winner)}
+    onResult={(result) => recordResult('briscola', user.uid === invite.host_id ? result : { winner: result.winner === null ? null : 1 - result.winner, scores: result.scores && [result.scores[1], result.scores[0]] })}
     deck={deckPreference}
     online={{ userId: user.uid, hostId: invite.host_id, state: invite.state, onState: (state) => void updateInviteState(pairId, state) }}
   /></main>
@@ -466,7 +503,7 @@ function App() {
     />
     {profileOpen && user && <ProfileModal user={user} deck={deckPreference} onDeck={changeDeckPreference} onClose={() => setProfileOpen(false)} onSignOut={() => { setProfileOpen(false); void toggleAuth() }} />}
     {tournamentSetupOpen && <TournamentSetup onClose={() => setTournamentSetupOpen(false)} onStart={createTournament} />}
-    {statsOpen && <StatsModal stats={stats} onClose={() => setStatsOpen(false)} />}
+    {statsOpen && <StatsModal stats={stats} names={[user?.displayName?.split(' ')[0] || 'Tomas', partner?.name.split(' ')[0] || 'Giulia']} onClose={() => setStatsOpen(false)} />}
     {(partnerOpen || incoming) && <PartnerModal
       user={user}
       pair={pair}

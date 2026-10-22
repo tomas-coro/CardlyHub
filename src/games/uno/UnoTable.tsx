@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import './uno.css'
 import { COLORS, DEFAULT_RULES, GOAL, MERCY_LIMIT, apply, buildDeck, canStack, isNumber, newGame, playError, shuffle, siblings, topCard } from './engine.ts'
 import type { Action, Card, Color, GameState, Rules, UnoEvent } from './engine.ts'
+import type { GameResult } from '../../lib/game-result.ts'
 import { COL, COLOR_NAME, cardLabel } from './colors.ts'
 import { UnoFace } from './UnoFace.tsx'
 import backUrl from '../../assets/cards/backs/uno-back.svg'
@@ -71,7 +72,7 @@ const sortHand = (h: Card[]) => {
   return h.slice().sort((x, y) => ord[x.c] - ord[y.c] || val(x) - val(y))
 }
 
-export default function UnoTable({ onBack, onResult }: { onBack: () => void; onResult?: (winner: number | null) => void }) {
+export default function UnoTable({ onBack, onResult }: { onBack: () => void; onResult?: (result: GameResult) => void }) {
   const wide = useWide()
   const [game, setGame] = useState<GameState>(() => newGame({ names: NAMES, rules: DEFAULT_RULES, first: 0 }, shuffle(buildDeck())))
   const [started, setStarted] = useState(false)             // false finché non si è premuto "Inizia la partita"
@@ -100,7 +101,13 @@ export default function UnoTable({ onBack, onResult }: { onBack: () => void; onR
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
   useEffect(() => {
     if (!game.matchOver) { reported.current = false; return }
-    if (!reported.current) { reported.current = true; onResult?.(game.roundWinner) }
+    if (!reported.current) {
+      reported.current = true
+      const scores: [number, number] = game.rules.mode === 'single'
+        ? [game.roundWinner === 0 ? game.points : 0, game.roundWinner === 1 ? game.points : 0]
+        : [game.scores[0], game.scores[1]]
+      onResult?.({ winner: game.roundWinner, scores })
+    }
   }, [game, onResult])
 
   const me = viewer
