@@ -18,7 +18,7 @@ import type { InviteSnapshot, PairSnapshot } from './lib/partner.ts'
 import { partnerOf } from './lib/partner-domain.ts'
 import { tournamentGame, winsNeeded, type BestOf } from './lib/tournament.ts'
 import type { GameResult } from './lib/game-result.ts'
-import { addResult, emptyGameStat, type GameStat } from './lib/statistics.ts'
+import { addResult, emptyGameStat, normalizeStat, type GameStat } from './lib/statistics.ts'
 import { catalog, families, type CatalogGame, type FamilyId } from './lib/game-catalog.ts'
 import { makeOnlineState, type OnlineState } from './lib/online-state.ts'
 import type { GameState as BriscolaState } from './games/briscola/engine.ts'
@@ -60,7 +60,7 @@ function loadRecents() {
 function loadStats(): Stats {
   try {
     const saved = JSON.parse(localStorage.getItem('cardly-stats') ?? 'null')
-    if (saved?.games) return { tournaments: 0, tournamentWins: 0, ...saved }
+    if (saved?.games) return { tournaments: 0, tournamentWins: 0, ...saved, games: Object.fromEntries(Object.entries(saved.games).map(([id, item]) => [id, normalizeStat(item as Partial<GameStat>)])) }
     if (saved?.started) {
       return {
         tournaments: saved.tournaments ?? 0,
@@ -255,11 +255,12 @@ function StatsModal({ stats, names, onClose }: { stats: Stats; names: [string, s
       <p className="status"><i /> Statistiche attive</p>
       <h2 id="stats-title">{names[0]} vs {names[1]}</h2>
       <div className="stats-total"><b>{wins[0]}–{wins[1]}</b><span>vittorie totali · {total} partite avviate</span></div>
-      <div className="stats-head"><span>Gioco</span><span>Partite</span><span>Vittorie</span><span>Media punti</span></div>
+      <div className="stats-head"><span>Gioco</span><span>Partite</span><span>Vittorie</span><span>Miglior punt.</span><span>Peggior punt.</span></div>
       <div className="stats-list">{games.map((game) => {
-        const item = stats.games[game.id] ?? emptyGameStat()
-        const average = item.pointGames ? `${Math.round(item.points[0] / item.pointGames)}–${Math.round(item.points[1] / item.pointGames)}` : '—'
-        return <div key={game.id}><b>{game.name}</b><span>{item.completed}/{item.started}</span><span>{item.wins[0]}–{item.wins[1]}{item.draws ? ` · ${item.draws} pari` : ''}</span><span>{average}</span></div>
+        const item = normalizeStat(stats.games[game.id] ?? emptyGameStat())
+        const pair = (p: [number | null, number | null]) => p[0] === null && p[1] === null ? '—' : `${p[0] ?? '—'}–${p[1] ?? '—'}`
+        const hands = item.hands[0] + item.hands[1] > 0 ? <small>mani {item.hands[0]}–{item.hands[1]}</small> : null
+        return <div key={game.id}><b>{game.name}</b><span>{item.completed}/{item.started}</span><span>{item.wins[0]}–{item.wins[1]}{item.draws ? ` · ${item.draws} pari` : ''}{hands}</span><span>{pair(item.best)}</span><span>{pair(item.worst)}</span></div>
       })}</div>
       <div className="stats-tournaments"><span>Tornei giocati <b>{stats.tournaments}</b></span><span>Vinti da {names[0]} <b>{stats.tournamentWins}</b></span></div>
     </section>

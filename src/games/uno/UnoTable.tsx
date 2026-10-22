@@ -110,10 +110,9 @@ export default function UnoTable({ onBack, onResult, online, onRematch }: { onBa
     if (!game.matchOver) { reported.current = false; return }
     if (!reported.current) {
       reported.current = true
-      const scores: [number, number] = game.rules.mode === 'single'
-        ? [game.roundWinner === 0 ? game.points : 0, game.roundWinner === 1 ? game.points : 0]
-        : [game.scores[0], game.scores[1]]
-      onResult?.({ winner: game.roundWinner, scores })
+      // niente `scores`: in UNO i punti cambiano significato con la modalità (carte rimaste, mani vinte, 500).
+      // Contano invece le mani vinte: in "al meglio di" scores = mani; in "500 punti" non sono mani, quindi nulla.
+      onResult?.({ winner: game.roundWinner, hands: game.rules.mode === 'pts' ? undefined : [game.scores[0], game.scores[1]] })
     }
   }, [game, onResult])
 

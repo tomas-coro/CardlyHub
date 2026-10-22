@@ -160,11 +160,12 @@ a { text-decoration: none; }
 .stats-total { display: flex; align-items: baseline; gap: 10px; padding: 16px 0; border-bottom: 1px solid rgb(23 21 43 / 20%); }
 .stats-total b { font: 400 3.4rem "Gloock", serif; }
 .stats-modal { width: min(100%, 650px); }
-.stats-head, .stats-list > div { display: grid; grid-template-columns: 1.25fr .65fr 1fr 1fr; align-items: center; gap: 10px; }
+.stats-head, .stats-list > div { display: grid; grid-template-columns: 1.2fr .6fr 1fr .9fr .9fr; align-items: center; gap: 10px; }
 .stats-head { padding: 12px 0 5px; font-size: .66rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .55; }
 .stats-list { display: grid; gap: 2px; margin-bottom: 12px; }
 .stats-list > div { padding: 10px 0; border-top: 1px solid rgb(23 21 43 / 12%); }
 .stats-list > div span:not(:first-child) { font-variant-numeric: tabular-nums; }
+.stats-list > div span small { display: block; margin-top: 2px; font-size: .72em; opacity: .6; }
 .tournament-games { display: grid; }
 .tournament-games > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
 .tournament-games > div span { display: flex; gap: 5px; }
@@ -236,7 +237,7 @@ a { text-decoration: none; }
   .casino-dock p { display: none; }
   .casino-bar nav .casino-line:first-child { padding-inline: 10px; }
   .setup-modal { padding: 28px 22px; }
-  .stats-head, .stats-list > div { grid-template-columns: 1fr .65fr 1fr .9fr; gap: 6px; font-size: .75rem; }
+  .stats-head, .stats-list > div { grid-template-columns: 1fr .6fr .9fr .8fr .8fr; gap: 4px; font-size: .7rem; }
   .stats-tournaments { flex-direction: column; }
   .tournament-score div { flex-direction: column; gap: 0; }
   .tournament-score div:last-child { flex-direction: column-reverse; }
