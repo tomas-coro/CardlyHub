@@ -19,7 +19,7 @@ import { partnerOf } from './lib/partner-domain.ts'
 import { tournamentGame, winsNeeded, type BestOf } from './lib/tournament.ts'
 import type { GameResult } from './lib/game-result.ts'
 import { addResult, emptyGameStat, type GameStat } from './lib/statistics.ts'
-import { catalog, families, type CatalogGame } from './lib/game-catalog.ts'
+import { catalog, families, type CatalogGame, type FamilyId } from './lib/game-catalog.ts'
 import { makeOnlineState, type OnlineState } from './lib/online-state.ts'
 import type { GameState as BriscolaState } from './games/briscola/engine.ts'
 import type { GameState as UnoState } from './games/uno/engine.ts'
@@ -106,10 +106,9 @@ function GameArt({ game }: { game: Game }) {
   )
 }
 
-function CasinoHome({ selected, onSelect, onPlay, onRules, onTournament, onStats, onProfile, onPartner, partnerName, user, authBusy, onAuth }: {
-  selected: Game
-  onSelect: (game: Game) => void
+function CasinoHome({ onPlay, onPlayLocal, onRules, onTournament, onStats, onProfile, onPartner, partnerName, user, authBusy, onAuth }: {
   onPlay: (game: Game) => void
+  onPlayLocal: (game: Game) => void
   onRules: (game: CatalogGame) => void
   onTournament: () => void
   onStats: () => void
@@ -120,6 +119,11 @@ function CasinoHome({ selected, onSelect, onPlay, onRules, onTournament, onStats
   authBusy: boolean
   onAuth: () => void
 }) {
+  // null = sala con i 4 tavoli; altrimenti la categoria aperta
+  const [openFamily, setOpenFamily] = useState<FamilyId | null>(null)
+  const family = families.find((item) => item.id === openFamily)
+  const playable = (entry: CatalogGame) => games.find((item) => item.id === entry.playId)!
+
   return <div className="casino-rim"><section className="casino-felt">
     <header className="casino-bar">
       <a className="casino-logo" href="/" aria-label="CardlyHub, pagina iniziale">CardlyHub</a>
@@ -130,40 +134,50 @@ function CasinoHome({ selected, onSelect, onPlay, onRules, onTournament, onStats
       </nav>
     </header>
 
-    <div className="casino-hero">
-      <p>Sala da gioco</p>
-      <h1>Quattro mazzi.<br />Una sala intera.</h1>
-      <span>Scegli una famiglia, apri le regole con ? e invita il tuo partner.</span>
-    </div>
+    {!family && <>
+      <div className="casino-hero">
+        <p>Sala da gioco</p>
+        <h1>Scegli un mazzo.</h1>
+      </div>
+      <div className="casino-tiles" aria-label="Categorie di giochi">
+        {families.map((item) => {
+          const ready = catalog.filter((game) => game.family === item.id && game.primary)
+          const soon = catalog.filter((game) => game.family === item.id && !game.primary)
+          return <button key={item.id} className="casino-spot casino-tile" onClick={() => setOpenFamily(item.id)}>
+            <GameArt game={playable(ready[0])} />
+            <span className="casino-game-name">{item.name}</span>
+            <span className="catalog-kind">{ready.length} {ready.length === 1 ? 'pronto' : 'pronti'} · {soon.length} presto</span>
+          </button>
+        })}
+      </div>
+      <footer className="casino-dock">
+        <div><button className="casino-main" onClick={onTournament}>Crea torneo</button></div>
+        <p>Regole sempre consultabili · Tornei personalizzati · Due account, due schermi</p>
+      </footer>
+    </>}
 
-    <div className="catalog" aria-label="Catalogo dei giochi">
-      {families.map((family) => {
-        const primary = catalog.filter((game) => game.family === family.id && game.primary)
-        const derived = catalog.filter((game) => game.family === family.id && !game.primary)
-        return <section className="catalog-family" key={family.id}>
-          <header><div><h2>{family.name}</h2><p>{family.note}</p></div><span>{primary.length + derived.length} giochi</span></header>
-          <div className="catalog-primary">
-            {primary.map((entry) => {
-              const game = games.find((item) => item.id === entry.playId)!
-              return <div className="catalog-main-card" key={entry.id}>
-                <button className="casino-spot" aria-pressed={selected.id === game.id} onClick={() => onSelect(game)}>
-                  <span className="casino-chip">Scelto</span><GameArt game={game} /><span className="catalog-kind">Gioco principale</span><span className="casino-game-name">{entry.name}</span>
-                </button>
-                <button className="rule-help" onClick={() => onRules(entry)} aria-label={`Regole di ${entry.name}`}>?</button>
-              </div>
-            })}
-          </div>
-          <div className="catalog-derived" aria-label={`Altri giochi con ${family.name}`}>
-            {derived.map((entry) => <button key={entry.id} onClick={() => onRules(entry)}><span>{entry.name}</span><small>In sviluppo</small><i aria-hidden="true">?</i></button>)}
-          </div>
-        </section>
-      })}
-    </div>
-
-    <footer className="casino-dock">
-      <div><button className="casino-main" onClick={() => onPlay(selected)}>Gioca a {selected.name}</button><button className="casino-line" onClick={onTournament}>Crea torneo</button></div>
-      <p>Regole sempre consultabili · Tornei personalizzati · Due account, due schermi</p>
-    </footer>
+    {family && <section className="casino-category" aria-label={family.name}>
+      <div className="casino-cat-head">
+        <button className="casino-line" onClick={() => setOpenFamily(null)}>← Sala</button>
+        <h2>{family.name}</h2>
+        <p>{family.note}</p>
+      </div>
+      <div className="catalog-primary">
+        {catalog.filter((game) => game.family === family.id && game.primary).map((entry) => <div className="catalog-main-card" key={entry.id}>
+          <button className="casino-spot" onClick={() => onPlay(playable(entry))} aria-label={`Gioca a ${entry.name} online`}>
+            <GameArt game={playable(entry)} /><span className="casino-game-name">{entry.name}</span><span className="casino-play">Gioca online</span>
+          </button>
+          <button className="casino-line casino-local" onClick={() => onPlayLocal(playable(entry))}>Sullo stesso schermo</button>
+          <button className="rule-help" onClick={() => onRules(entry)} aria-label={`Regole di ${entry.name}`}>?</button>
+        </div>)}
+      </div>
+      <div className="catalog-soon">
+        <h3>Prossimamente · {catalog.filter((game) => game.family === family.id && !game.primary).length}</h3>
+        <div className="catalog-derived" aria-label={`Altri giochi con ${family.name}`}>
+          {catalog.filter((game) => game.family === family.id && !game.primary).map((entry) => <button key={entry.id} onClick={() => onRules(entry)}><span>{entry.name}</span><i aria-hidden="true">?</i></button>)}
+        </div>
+      </div>
+    </section>}
   </section></div>
 }
 
@@ -330,7 +344,6 @@ function PartnerModal({ user, pair, pairLoading, invite, onClose, onLogin, onCre
 
 function AppBody({ onError }: { onError: (message: string) => void }) {
   const [recentIds, setRecentIds] = useState(loadRecents)
-  const [selectedGame, setSelectedGame] = useState<Game>(() => games.find((game) => game.id === loadRecents()[0]) ?? games[0])
   const [openGame, setOpenGame] = useState<Game['id'] | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [authBusy, setAuthBusy] = useState(false)
@@ -465,6 +478,15 @@ function AppBody({ onError }: { onError: (message: string) => void }) {
     setPartnerOpen(true)
   }
 
+  // Partita sullo stesso schermo: niente account, niente invito, due giocatori alternati sul tavolo locale
+  function playLocal(game: Game) {
+    const next = [game.id, ...recentIds.filter((id) => id !== game.id)]
+    localStorage.setItem('recent-games', JSON.stringify(next))
+    setRecentIds(next)
+    countStarted(game.id)
+    setOpenGame(game.id)
+  }
+
   // Rivincita: stesso gioco e stesse regole, mazzo nuovo e primo giocatore a caso. Può premerla chiunque dei due.
   function rematch() {
     if (!pairId || !invite) return
@@ -541,9 +563,8 @@ function AppBody({ onError }: { onError: (message: string) => void }) {
   const incoming = Boolean(user && invite?.status === 'pending' && invite.guest_id === user.uid)
   return <main>
     <CasinoHome
-      selected={selectedGame}
-      onSelect={setSelectedGame}
       onPlay={(game) => void play(game)}
+      onPlayLocal={playLocal}
       onRules={setRulesGame}
       onTournament={() => setTournamentSetupOpen(true)}
       onStats={() => setStatsOpen(true)}

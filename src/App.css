@@ -181,7 +181,28 @@ a { text-decoration: none; }
 .tournament-score span { font-size: clamp(1rem, 2vw, 1.4rem); font-weight: 700; }
 .tournament-score i { color: var(--gold); font-size: 2rem; }
 
+/* Home a categorie: 4 tavoli 2x2, poi la schermata della categoria */
+.casino-hero:has(+ .casino-tiles) { padding: clamp(10px, 2.4vh, 26px) 0 clamp(10px, 2vh, 22px); }
+.casino-hero:has(+ .casino-tiles) h1 { font-size: clamp(2.2rem, 4.6vw, 3.8rem); }
+.casino-tiles { width: min(100%, 1180px); flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(12px, 1.6vw, 22px); margin: 0 auto; }
+.casino-tile { min-height: 0; }
+.casino-tile .casino-game-name { font-size: clamp(1.6rem, 2.6vw, 2.4rem); }
+.casino-tile:hover { --spread: 1.45; }
+.casino-category { width: min(100%, 1180px); flex: 1; display: flex; flex-direction: column; margin: 0 auto; padding-bottom: 26px; }
+.casino-cat-head { padding: 22px 0 8px; }
+.casino-cat-head .casino-line { margin-bottom: 14px; }
+.casino-cat-head h2 { margin: 0; color: var(--gold); font: 400 clamp(2.2rem, 4.4vw, 3.8rem)/1 "Gloock", serif; }
+.casino-cat-head p { max-width: 56ch; margin: 8px 0 0; opacity: .78; }
+.casino-category .catalog-primary { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 340px)); margin: 22px 0 26px; }
+.casino-local { width: 100%; margin-top: 10px; }
+.casino-play { padding: 8px 22px; border-radius: 999px; color: #2a1a0c; background: var(--gold); font: 400 1.05rem "Gloock", serif; }
+.catalog-soon { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--gold-soft); }
+.catalog-soon h3 { margin: 0 0 10px; color: var(--gold); font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; }
+.catalog-soon .catalog-derived { margin-top: 0; }
+
 @media (max-width: 760px) {
+  .casino-tiles { gap: 10px; padding-bottom: 8px; }
+  .casino-category .catalog-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .casino-rim { padding: 8px; }
   .casino-felt { min-height: calc(100dvh - 16px); padding: 0 14px; border-radius: 20px; }
   .casino-bar { padding-top: 18px; }

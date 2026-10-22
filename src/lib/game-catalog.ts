@@ -12,9 +12,9 @@ export type CatalogGame = {
 }
 
 export const families: { id: FamilyId; name: string; note: string }[] = [
-  { id: 'colored', name: 'Carte colorate', note: 'Il mazzo UNO, dai duelli rapidi alle sfide simultanee.' },
   { id: 'poker', name: 'Mazzo Poker', note: 'Carte francesi per velocità, combinazioni e memoria.' },
   { id: 'italian', name: 'Mazzo italiano', note: 'Quaranta carte, prese, scope e giochi della tradizione.' },
+  { id: 'colored', name: 'Carte colorate', note: 'Il mazzo UNO, dai duelli rapidi alle sfide simultanee.' },
   { id: 'dice', name: 'Dadi', note: 'Rischio, obiettivi e combinazioni da uno a cinque dadi.' },
 ]
 

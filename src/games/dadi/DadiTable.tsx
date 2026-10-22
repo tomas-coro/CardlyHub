@@ -234,52 +234,66 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
             : 'Tocca i dadi da tenere, poi tira gli altri o scegli una categoria.'
   const rollLabel = busy ? (skipping ? 'Accelero…' : 'Accelera') : left === 3 ? 'Tira' : left === 0 ? 'Scegli un punteggio' : `Tira ancora (${left})`
 
+  // Schede punti: sinistra sempre "mia" (online) o di Tomas (stesso schermo), destra dell'altro, come un tavolo vero.
+  // Si può scegliere una categoria solo sulla scheda di chi ha il turno.
+  const leftIdx = online ? me : 0
+  const pad = (idx: number) => {
+    const turnOn = game.phase === 'playing' && game.turn === idx
+    const canPick = turnOn && (!online || idx === me) && !busy && left < 3
+    return (
+      <div className={`dadi-pad${turnOn ? ' on' : ''}`} aria-label={`Scheda di ${game.names[idx]}`}>
+        <h3><span>{game.names[idx]}</span><b>{total(game.scores[idx])}</b></h3>
+        {CATEGORIES.map((category) => {
+          const value = game.scores[idx][category]
+          return <button key={category} disabled={!canPick || value !== undefined} onClick={() => choose(category)}>
+            <span>{LABEL[category]}</span>
+            <em className={value === undefined && canPick ? 'preview' : ''}>{value ?? (canPick ? score(category, game.dice) : '·')}</em>
+          </button>
+        })}
+      </div>
+    )
+  }
+
   return (
     <section className="dadi-screen" aria-label="Dadi, Yahtzee">
-      <button className="dadi-back" onClick={onBack}>← Indietro</button>
       <div className="dadi-table">
         <div className="dadi-hud">
-          <span>Yahtzee · {game.names[me]}</span>
+          <button className="dadi-back" onClick={onBack}>← Indietro</button>
+          <span className="dadi-title">Yahtzee · {game.phase === 'over' ? 'Partita finita' : `Tocca a ${game.names[game.turn]}`}</span>
           <span className="dadi-tries" role="img" aria-label={`Tiri rimasti: ${left}`}>
             {[0, 1, 2].map((k) => <i key={k} className={k >= left ? 'used' : ''} />)}
           </span>
         </div>
-        <div className="dadi-felt" ref={feltBox} onClick={(e) => { if (busy && !(e.target as HTMLElement).closest('.die-btn')) accelerate() }}>
-          <div className="dadi-dice" ref={diceBox}>
-            {vals.map((v, i) => (
-              <div key={i} className={`slot${held[i] ? ' held' : ''}`} ref={(el) => { slotEl.current[i] = el }}>
-                <div className="ring" />
-                <div className="shadow" ref={(el) => { shadowEl.current[i] = el }} />
-                <div className="body" ref={(el) => { bodyEl.current[i] = el }}>
-                  <div className="cube" ref={(el) => { cubeEl.current[i] = el }}>
-                    {FACES.map((n) => <div key={`c${n}`} className={`c k${n}`} />)}
-                    {FACES.map((n) => <div key={`f${n}`} className={`f f${n}`}>{PIPS.map((p) => <i key={p} className={`pip p${p}`} />)}</div>)}
+        <div className="dadi-board">
+          {pad(leftIdx)}
+          <div className="dadi-center">
+            <div className="dadi-felt" ref={feltBox} onClick={(e) => { if (busy && !(e.target as HTMLElement).closest('.die-btn')) accelerate() }}>
+              <div className="dadi-dice" ref={diceBox}>
+                {vals.map((v, i) => (
+                  <div key={i} className={`slot${held[i] ? ' held' : ''}`} ref={(el) => { slotEl.current[i] = el }}>
+                    <div className="ring" />
+                    <div className="shadow" ref={(el) => { shadowEl.current[i] = el }} />
+                    <div className="body" ref={(el) => { bodyEl.current[i] = el }}>
+                      <div className="cube" ref={(el) => { cubeEl.current[i] = el }}>
+                        {FACES.map((n) => <div key={`c${n}`} className={`c k${n}`} />)}
+                        {FACES.map((n) => <div key={`f${n}`} className={`f f${n}`}>{PIPS.map((p) => <i key={p} className={`pip p${p}`} />)}</div>)}
+                      </div>
+                    </div>
+                    <button className="die-btn" type="button" aria-pressed={held[i]}
+                      aria-label={`Dado ${i + 1}, valore ${v}${held[i] ? ', bloccato' : ''}`} onClick={() => toggleHold(i)} />
+                    <span className="tag">Bloccato</span>
                   </div>
-                </div>
-                <button className="die-btn" type="button" aria-pressed={held[i]}
-                  aria-label={`Dado ${i + 1}, valore ${v}${held[i] ? ', bloccato' : ''}`} onClick={() => toggleHold(i)} />
-                <span className="tag">Bloccato</span>
+                ))}
               </div>
-            ))}
+            </div>
+            <div className="dadi-actions">
+              <p className="dadi-hint" aria-live="polite">{hint}</p>
+              {game.phase === 'over' && online && <button className="dadi-roll" type="button" onClick={onRematch}>Rivincita</button>}
+              <button className={`dadi-roll${busy ? ' skip' : ''}`} type="button" disabled={!busy && (!myTurn || left === 0 || game.phase === 'over')} onClick={roll}>{rollLabel}</button>
+              <button className="dadi-opt" type="button" aria-pressed={fast} onClick={toggleFast}>{fast ? 'Lancio veloce: sì' : 'Lancio veloce: no'}</button>
+            </div>
           </div>
-        </div>
-        <div className="dadi-sheet" aria-label="Scheda punteggi">
-          {CATEGORIES.map((category) => {
-            const mine = game.scores[me][category]
-            const other = game.scores[1 - me][category]
-            return <button key={category} disabled={!myTurn || busy || left === 3 || mine !== undefined} onClick={() => choose(category)}>
-              <span>{LABEL[category]}</span><small>{mine ?? (left < 3 && myTurn ? score(category, game.dice) : '—')} · {game.names[1 - me]}: {other ?? '—'}</small>
-            </button>
-          })}
-        </div>
-        <div className="dadi-actions">
-          <p className="dadi-hint" aria-live="polite">{hint}</p>
-          {game.phase === 'over' && online && <button className="dadi-roll" type="button" onClick={onRematch}>Rivincita</button>}
-          <button className={`dadi-roll${busy ? ' skip' : ''}`} type="button" disabled={!busy && (!myTurn || left === 0 || game.phase === 'over')} onClick={roll}>{rollLabel}</button>
-          <div className="dadi-row">
-            <span className="dadi-total">{game.names[0]} {total(game.scores[0])} · {game.names[1]} {total(game.scores[1])}</span>
-            <button className="dadi-opt" type="button" aria-pressed={fast} onClick={toggleFast}>{fast ? 'Lancio veloce: sì' : 'Lancio veloce: no'}</button>
-          </div>
+          {pad(1 - leftIdx)}
         </div>
       </div>
     </section>
