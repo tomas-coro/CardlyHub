@@ -154,7 +154,8 @@
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
   /* ═══ DESKTOP ═══ */
-  .bu-wide{max-width:1180px;height:calc(100dvh - 32px);min-height:640px;margin:16px auto;--tw:70px;--hw:82px;--mw:92px;--pk:42px;--pw:230px;--ow:40px;border:14px solid var(--wood);border-radius:26px;box-shadow:inset 0 0 0 2px rgba(201,162,39,.55),inset 0 0 90px rgba(0,0,0,.5)}
+  .bu-wide{max-width:min(1700px,100%);height:calc(100dvh - 12px);min-height:640px;margin:6px auto;
+    --tw:clamp(70px,min(5.6vw,10.5vh),104px);--hw:clamp(82px,min(6.6vw,12.5vh),122px);--mw:clamp(92px,min(7vw,13vh),132px);--pk:calc(var(--mw)*.46);--pw:calc(var(--tw)*3.3);--ow:clamp(40px,min(3.2vw,6vh),58px);border:10px solid var(--wood);border-radius:26px;box-shadow:inset 0 0 0 2px rgba(201,162,39,.55),inset 0 0 90px rgba(0,0,0,.5)}
   .bu-wide .bu-hud{padding:8px 18px}
   .bu-wide .bu-band{padding:12px 28px 4px}
   .bu-wide .bu-zone{padding:8px 16px 8px}

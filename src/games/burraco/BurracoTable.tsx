@@ -211,6 +211,26 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
         }
       }
     }
+    // la mia pesca: ogni carta nuova vola dal punto in cui stava (nel pozzo) o dal tallone fino al suo posto in mano
+    const mine = game.hands[me]
+    if (prev !== game && prev.phase === 'draw' && prev.turn === me && mine.length > prev.hands[me].length
+      && !(online && isRemoteChange(online)) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const had = new Set(prev.hands[me].map((c) => c.id))
+      const fresh = mine.filter((c) => !had.has(c.id))
+      const deck = el.querySelector<HTMLElement>('.bu-dk')?.getBoundingClientRect()
+      fresh.forEach((c, i) => {
+        const node = el.querySelector<HTMLElement>(`.bu-hand .bu-pc[data-id="${c.id}"]`)
+        const from = cardRects.current.get(c.id) ?? deck
+        if (!node || !from) return
+        const r = node.getBoundingClientRect()
+        const dx = from.left + from.width / 2 - (r.left + r.width / 2), dy = from.top + from.height / 2 - (r.top + r.height / 2)
+        node.animate([
+          { translate: `${dx}px ${dy}px`, scale: String(from.width / r.width), rotate: '-8deg', zIndex: 30 },
+          { translate: `${dx * 0.35}px ${dy * 0.35 - 36}px`, scale: '1.12', rotate: '3deg', zIndex: 30, offset: 0.55 },
+          { translate: '0 0', scale: '1', rotate: '0deg', zIndex: 30 },
+        ], { duration: 620, delay: Math.min(i * 55, 440), easing: 'cubic-bezier(.25,.8,.3,1)', fill: 'backwards' })
+      })
+    }
     prevGame.current = game
     cardRects.current = now
   })
@@ -312,7 +332,11 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
   function over_(e: { clientX: number; clientY: number }): Over {
     const t = document.elementFromPoint(e.clientX, e.clientY)
     if (!t || !root.current?.contains(t)) return {}
-    return { meld: t.closest<HTMLElement>('.bu-meld'), zone: t.closest<HTMLElement>('.bu-zone'), dis: t.closest<HTMLElement>('.bu-dis'), hand: t.closest<HTMLElement>('.bu-hand') }
+    // la mano accetta il rilascio anche poco fuori dal suo bordo: lasciare una carta "quasi" sulla mano deve riordinare, non fallire
+    const handEl = root.current.querySelector<HTMLElement>('.bu-hand')
+    const hr = handEl?.getBoundingClientRect()
+    const nearHand = hr && e.clientX > hr.left - 24 && e.clientX < hr.right + 24 && e.clientY > hr.top - 24 && e.clientY < hr.bottom + 24 ? handEl : null
+    return { meld: t.closest<HTMLElement>('.bu-meld'), zone: t.closest<HTMLElement>('.bu-zone'), dis: t.closest<HTMLElement>('.bu-dis'), hand: t.closest<HTMLElement>('.bu-hand') ?? nearHand }
   }
 
   // Posizione in mano: quante carte (non trascinate) stanno prima del puntatore.
@@ -373,6 +397,12 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
     return {}
   }
 
+  // Gestori del trascinamento con identità fissa: se ogni render ne creasse di nuovi, removeEventListener non
+  // toglierebbe quelli registrati prima e si accumulerebbero (mosse doppie, carte che si ripetono).
+  const fns = useRef({ onMove, onUp, stop })
+  useLayoutEffect(() => { fns.current = { onMove, onUp, stop } })
+  const dnd = useRef({ move: (e: PointerEvent) => fns.current.onMove(e), up: (e: PointerEvent) => fns.current.onUp(e), cancel: () => fns.current.stop() })
+
   function onPointerDown(e: React.PointerEvent) {
     if (e.button > 0 || (e.target as HTMLElement).closest('.bu-ov') || !root.current) return
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-dnd]')
@@ -386,9 +416,9 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
       cards = L.sel.includes(card.id) && L.sel.length > 1 ? L.hand.filter((x) => L.sel.includes(x.id)) : [card]
     }
     dr.current = { kind, el, x0: e.clientX, y0: e.clientY, on: false, card, cards }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', stop)
+    window.addEventListener('pointermove', dnd.current.move)
+    window.addEventListener('pointerup', dnd.current.up)
+    window.addEventListener('pointercancel', dnd.current.cancel)
   }
 
   function onMove(e: PointerEvent) {
@@ -424,9 +454,9 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
   }
 
   function stop() {
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', stop)
+    window.removeEventListener('pointermove', dnd.current.move)
+    window.removeEventListener('pointerup', dnd.current.up)
+    window.removeEventListener('pointercancel', dnd.current.cancel)
     const d = dr.current
     d?.ghost?.remove(); d?.ins?.remove()
     root.current?.querySelectorAll('.bu-drop,.bu-dragging').forEach((n) => n.classList.remove('bu-drop', 'bu-bad', 'bu-dragging'))
@@ -446,7 +476,7 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
       const cs = d.cards!
       if (o.hand) {                                   // riordino: valido anche fuori turno
         const n = insAt(o.hand, e, cs).n
-        const others = L.hand.filter((x) => !cs.includes(x))
+        const others = L.hand.filter((x) => !cs.some((c) => c.id === x.id))
         others.splice(n, 0, ...cs)
         setHand(others)
         return
