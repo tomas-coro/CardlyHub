@@ -70,6 +70,13 @@ function describe(events: UnoEvent[], names = DEFAULT_NAMES): string {
   return out.join(' · ')
 }
 
+// Dispone la mano secondo l'ordine scelto dal giocatore; le carte nuove (non nella lista) vanno in fondo
+const applyOrder = (h: Card[], order: number[]) => {
+  if (!order.length) return h
+  const pos = new Map(order.map((id, i) => [id, i]))
+  return h.slice().sort((a, b) => (pos.get(a.id) ?? 1e6) - (pos.get(b.id) ?? 1e6))
+}
+
 const sortHand = (h: Card[]) => {
   const ord: Record<string, number> = { r: 0, b: 1, y: 2, g: 3, w: 4 }
   const val = (c: Card) => (isNumber(c) ? +c.v : ({ skip: 10, rev: 11, d2: 12, w: 13, w4: 14 } as Record<string, number>)[c.v])
@@ -119,7 +126,9 @@ export default function UnoTable({ onBack, onResult, online, onRematch }: { onBa
   const me = online ? playerIndex(online) : viewer
   const op = 1 - me
   const over = game.phase === 'over'
-  const hand = game.hands[me]
+  // Ordine della mano: solo su questo dispositivo (non va nello stato condiviso), così si può riordinare anche fuori turno
+  const [order, setOrder] = useState<number[]>([])
+  const hand = applyOrder(game.hands[me], order)
   const shown = dragOrder ? dragOrder.map((id) => hand.find((c) => c.id === id)!) : hand
   const myTurn = game.phase === 'play' && game.turn === me && cover === null && !rulesOpen
   const say = (text: string) => setToast({ text, n: ++toastN.current })
@@ -235,10 +244,7 @@ export default function UnoTable({ onBack, onResult, online, onRematch }: { onBa
     later(() => setAskExit(false), 3000)
   }
 
-  function reorder(ids: number[]) {
-    if (online && !myTurn) return
-    saveGame({ ...game, hands: game.hands.map((h, p) => (p === me ? ids.map((id) => h.find((c) => c.id === id)!) : h)) })
-  }
+  function reorder(ids: number[]) { setOrder(ids) }
 
   function tap(c: Card, el: HTMLElement) {
     if (suppressClick.current) { suppressClick.current = false; return }

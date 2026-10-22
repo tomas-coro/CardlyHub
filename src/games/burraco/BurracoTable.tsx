@@ -66,6 +66,12 @@ function describe(events: BurracoEvent[], names = DEFAULT_NAMES): string {
 }
 
 const SUIT_ORDER = { h: 0, d: 1, c: 2, s: 3, j: 9 } as const
+// Dispone la mano secondo l'ordine scelto dal giocatore; le carte nuove (non nella lista) vanno in fondo
+const applyOrder = (h: Card[], order: number[]) => {
+  if (!order.length) return h
+  const pos = new Map(order.map((id, i) => [id, i]))
+  return h.slice().sort((a, b) => (pos.get(a.id) ?? 1e6) - (pos.get(b.id) ?? 1e6))
+}
 const sortBySuit = (h: Card[]) => h.slice().sort((a, b) => SUIT_ORDER[a.s] - SUIT_ORDER[b.s] || a.r - b.r)
 const sortByValue = (h: Card[]) => h.slice().sort((a, b) => Number(a.s === 'j') - Number(b.s === 'j') || a.r - b.r || SUIT_ORDER[a.s] - SUIT_ORDER[b.s])
 
@@ -154,14 +160,16 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
   const me = online ? playerIndex(online) : viewer
   const op = 1 - me
   const over = game.phase === 'over'
-  const hand = game.hands[me]
+  // Ordine della mano: solo su questo dispositivo (non va nello stato condiviso), così si può riordinare anche fuori turno
+  const [order, setOrder] = useState<number[]>([])
+  const hand = applyOrder(game.hands[me], order)
   const overlay = rulesMode !== null || cover !== null
   const myTurn = game.phase !== 'over' && game.turn === me && !overlay
   const say = (text: string, bad = false) => setToast({ text, bad, n: ++toastN.current })
 
   // Stato "vivo" per i gestori del trascinamento (che vivono fuori dal render).
-  const live = useRef({ game, me, myTurn, sel })
-  useLayoutEffect(() => { live.current = { game, me, myTurn, sel } })
+  const live = useRef({ game, me, myTurn, sel, hand })
+  useLayoutEffect(() => { live.current = { game, me, myTurn, sel, hand } })
 
   // Mosse dell'avversario: messaggio, carte che scivolano nei suoi giochi e nel pozzo (FLIP: da dove erano a dove
   // sono ora; le carte nuove partono dalla sua mano), dorso che vola dal tallone o dal pozzo quando lui pesca.
@@ -274,10 +282,7 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
     later(() => setAskExit(false), 3000)
   }
 
-  const setHand = (cards: Card[]) => {
-    if (online && !myTurn) return
-    saveGame({ ...game, hands: game.hands.map((h, p) => (p === me ? cards : h)) })
-  }
+  const setHand = (cards: Card[]) => setOrder(cards.map((c) => c.id))
 
   // ── clic ──
   const suppress = useRef(false)                         // il click che segue un trascinamento non conta
@@ -376,9 +381,9 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
     const L = live.current
     let card: Card | undefined, cards: Card[] | undefined
     if (kind === 'hand') {
-      card = L.game.hands[L.me].find((x) => x.id === +el.dataset.id!)
+      card = L.hand.find((x) => x.id === +el.dataset.id!)
       if (!card) return
-      cards = L.sel.includes(card.id) && L.sel.length > 1 ? L.game.hands[L.me].filter((x) => L.sel.includes(x.id)) : [card]
+      cards = L.sel.includes(card.id) && L.sel.length > 1 ? L.hand.filter((x) => L.sel.includes(x.id)) : [card]
     }
     dr.current = { kind, el, x0: e.clientX, y0: e.clientY, on: false, card, cards }
     window.addEventListener('pointermove', onMove)
@@ -441,7 +446,7 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
       const cs = d.cards!
       if (o.hand) {                                   // riordino: valido anche fuori turno
         const n = insAt(o.hand, e, cs).n
-        const others = L.game.hands[L.me].filter((x) => !cs.includes(x))
+        const others = L.hand.filter((x) => !cs.includes(x))
         others.splice(n, 0, ...cs)
         setHand(others)
         return
@@ -565,8 +570,8 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
             ))}
           </div>
           <div className="bu-acts">
-            <button className="bu-abtn" disabled={hand.length < 2 || (Boolean(online) && !myTurn)} onClick={() => { setHand(sortBySuit(hand)); say('Ordinate per seme.') }} aria-label="Ordina per seme">Seme</button>
-            <button className="bu-abtn" disabled={hand.length < 2 || (Boolean(online) && !myTurn)} onClick={() => { setHand(sortByValue(hand)); say('Ordinate per valore.') }} aria-label="Ordina per valore">Valore</button>
+            <button className="bu-abtn" disabled={hand.length < 2} onClick={() => { setHand(sortBySuit(hand)); say('Ordinate per seme.') }} aria-label="Ordina per seme">Seme</button>
+            <button className="bu-abtn" disabled={hand.length < 2} onClick={() => { setHand(sortByValue(hand)); say('Ordinate per valore.') }} aria-label="Ordina per valore">Valore</button>
             <button className="bu-abtn bu-main" disabled={!myTurn || game.phase !== 'play' || selCards.length < 3} onClick={tapMeldCards}>Cala</button>
             <button className="bu-abtn" disabled={!myTurn || game.phase !== 'play' || selCards.length !== 1} onClick={() => act({ type: 'discard', id: selCards[0].id })}>Scarta</button>
             <button className="bu-abtn" style={{ minWidth: 44, padding: 0 }} aria-label={open ? 'Chiudi la mano' : 'Apri la mano'} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '▲' : '▼'}</button>
