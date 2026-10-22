@@ -4,280 +4,160 @@ button { cursor: pointer; }
 a { text-decoration: none; }
 
 :root {
+  --gold: #d4af5a;
+  --gold-soft: rgb(212 175 90 / 38%);
+  --ivory: #f6ecd6;
+  --felt-light: #1a6d4b;
+  --felt: #0e4b34;
+  --felt-dark: #08301f;
+  --wood: #4a2c18;
+  --wood-dark: #2c190d;
   --ink: #17152b;
   --paper: #f5f2e9;
   --purple: #6754e9;
-  --coral: #ff6557;
   --lime: #c8ef62;
-  --line: rgb(23 21 43 / 16%);
 }
 
-.picker {
-  height: 48px;
+/* Home — salotto casinò */
+.casino-rim {
+  min-height: 100dvh;
+  padding: 14px;
+  color: var(--ivory);
+  font-family: "Hanken Grotesk", sans-serif;
+  background: repeating-linear-gradient(94deg, rgb(0 0 0 / 14%) 0 2px, transparent 2px 9px), linear-gradient(var(--wood), var(--wood-dark));
+}
+.casino-felt {
+  position: relative;
+  min-height: calc(100dvh - 28px);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 clamp(18px, 4vw, 56px);
-  color: #b9b7c1;
-  background: #17171a;
-  font-size: 11px;
-}
-.picker div { display: flex; gap: 4px; }
-.picker button { padding: 7px 13px; border: 0; border-radius: 5px; color: #aaa8b0; background: transparent; font-size: 11px; }
-.picker button.active { color: var(--ink); background: var(--paper); }
-
-.mockup { height: calc(100dvh - 48px); overflow: hidden; }
-.site-header {
-  height: 70px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  padding: 0 clamp(24px, 5vw, 72px);
-  border-bottom: 1px solid var(--line);
-}
-.site-header nav { display: flex; gap: 30px; font-size: 12px; }
-.site-header > :last-child { justify-self: end; }
-.header-actions { display: flex; align-items: center; gap: 8px; }
-.logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 900; letter-spacing: -.055em; }
-.logo i { color: var(--coral); font-size: 12px; font-style: normal; }
-.outline-action, .auth-action { padding: 10px 16px; border: 1px solid currentColor; border-radius: 99px; background: transparent; font: 750 11px inherit; white-space: nowrap; }
-.auth-action { color: white; border-color: var(--purple); background: var(--purple); }
-.auth-action:disabled { cursor: wait; opacity: .65; }
-.status { display: flex; align-items: center; gap: 9px; margin: 0 0 20px; font-size: 11px; font-weight: 800; }
-.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 5px rgb(200 239 98 / 18%); }
-.hero-copy h1, .night-copy h1, .library-intro h1 { margin: 0; font-size: clamp(64px, 7.3vw, 105px); font-weight: 900; line-height: .84; letter-spacing: -.085em; }
-.lead { max-width: 440px; margin: 25px 0; font-size: 15px; line-height: 1.5; opacity: .72; }
-.hero-actions { display: flex; align-items: center; gap: 18px; }
-.main-action { padding: 14px 19px; border: 0; border-radius: 7px; color: white; background: var(--purple); box-shadow: 4px 4px 0 var(--ink); font: 800 12px inherit; white-space: nowrap; }
-.plain-action { padding: 9px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; font: 800 12px inherit; }
-
-/* Partner pairing and invitations */
-.room-overlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; color: var(--ink); background: rgb(23 21 43 / 72%); backdrop-filter: blur(8px); }
-.room-modal { position: relative; width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow: auto; padding: 34px; border: 2px solid var(--ink); border-radius: 18px; background: var(--paper); box-shadow: 9px 10px 0 var(--coral); }
-.room-modal h2 { margin: 0; font-size: clamp(35px, 7vw, 52px); letter-spacing: -.06em; }
-.room-modal > p:not(.status) { line-height: 1.5; }
-.room-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border: 1px solid var(--ink); border-radius: 50%; background: transparent; font-size: 22px; }
-.room-modal form { display: grid; gap: 18px; margin-top: 26px; }
-.room-modal label { display: grid; gap: 7px; font-size: 11px; font-weight: 850; }
-.room-modal input, .room-modal select { width: 100%; padding: 13px; border: 1.5px solid var(--ink); border-radius: 7px; color: var(--ink); background: white; font: 700 15px inherit; }
-.room-modal form .main-action { width: 100%; }
-.partner-action { width: 100%; margin-top: 18px; }
-.partner-link { letter-spacing: 0; }
-.room-modal button:disabled { cursor: wait; opacity: .6; }
-.room-code-input { text-transform: uppercase; letter-spacing: .25em; }
-.room-switch { margin-top: 18px; padding: 4px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; font: 750 11px inherit; }
-.room-error { padding: 11px; border-radius: 7px; color: #8b2018; background: #ffd8d3; font-size: 12px; }
-.room-code-live { width: 100%; display: flex; align-items: center; justify-content: space-between; margin: 22px 0; padding: 17px; border: 2px solid var(--ink); border-radius: 9px; color: var(--ink); background: var(--lime); font: 900 26px inherit; letter-spacing: .18em; }
-.room-code-live small { font-size: 9px; letter-spacing: 0; }
-.room-player-list { display: grid; gap: 8px; }
-.room-player-list > div { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 9px; }
-.room-player-list i { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--purple); font-size: 9px; font-style: normal; font-weight: 900; }
-.room-player-list b { font-size: 12px; }
-.room-player-list small, .room-note { opacity: .65; font-size: 9px; }
-
-/* 01 — product first */
-.product { color: var(--ink); background: var(--paper); }
-.product .hero-copy h1 { font-size: clamp(60px, 5.7vw, 82px); }
-.product .hero-copy h1 span { white-space: nowrap; }
-.product-hero {
-  height: calc(100% - 112px);
-  display: grid;
-  grid-template-columns: .72fr 1.28fr;
-  gap: clamp(44px, 7vw, 100px);
-  align-items: center;
-  max-width: 1420px;
-  margin: auto;
-  padding: 28px clamp(30px, 6vw, 86px) 40px;
-}
-.product-showcase {
-  position: relative;
-  justify-self: end;
-  width: min(57vw, 730px);
-  padding: 17px 17px 0 0;
-}
-.product-showcase::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 8% 7%;
-  border-radius: 22px;
-  background: var(--purple);
-  transform: rotate(2deg);
-}
-.product-window {
-  position: relative;
-  z-index: 1;
+  flex-direction: column;
   overflow: hidden;
-  border: 2px solid var(--ink);
-  border-radius: 18px;
-  background: #e8e4dc;
-  box-shadow: 8px 9px 0 var(--ink);
+  padding: 0 clamp(18px, 4vw, 64px);
+  border-radius: 26px;
+  background: radial-gradient(90% 70% at 50% 18%, var(--felt-light), var(--felt) 55%, var(--felt-dark));
+  box-shadow: inset 0 0 0 2px var(--gold), inset 0 0 0 7px rgb(0 0 0 / 28%), inset 0 0 80px rgb(0 0 0 / 45%);
 }
-.live-badge, .invite-badge {
+.casino-felt::before {
+  content: "";
   position: absolute;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 12px;
-  border: 2px solid var(--ink);
-  border-radius: 99px;
-  background: #fffdf5;
-  box-shadow: 3px 4px 0 var(--ink);
-  font-size: 9px;
-  font-weight: 900;
+  inset: 0;
+  pointer-events: none;
+  opacity: .12;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-.live-badge { top: 0; right: -12px; }
-.live-badge i { width: 7px; height: 7px; border-radius: 50%; background: #56bb70; }
-.invite-badge { right: 4%; bottom: -15px; }
-.invite-badge b { color: var(--purple); font-size: 12px; }
-.window-top { height: 43px; display: flex; align-items: center; gap: 6px; padding: 0 16px; border-bottom: 2px solid var(--ink); background: white; }
-.window-top span { margin-right: auto; font-size: 10px; font-weight: 800; }
-.window-top i { width: 8px; height: 8px; border-radius: 50%; background: #cbc7bf; }
-.window-body { padding: clamp(17px, 2.2vw, 30px); }
-.welcome { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.welcome small, .welcome b { display: block; }
-.welcome small { margin-bottom: 4px; font-size: 9px; }
-.welcome b { font-size: clamp(17px, 2vw, 25px); }
-.welcome > span { width: 38px; height: 38px; display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 50%; color: white; background: var(--purple); font-size: 10px; font-weight: 900; }
-.game-card {
+.casino-felt > * { position: relative; }
+.casino-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 26px; }
+.casino-logo { color: var(--gold); font: 400 1.5rem "Gloock", serif; }
+.casino-bar nav, .casino-dock > div { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.casino-line {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--gold-soft);
+  border-radius: 999px;
+  color: var(--ivory);
+  background: transparent;
+  font-weight: 600;
+  font-size: .86rem;
+}
+.casino-line:hover { border-color: var(--gold); background: rgb(212 175 90 / 12%); }
+.casino-line:disabled { cursor: wait; opacity: .65; }
+.casino-hero { padding: clamp(22px, 5vh, 56px) 0 clamp(18px, 3.5vh, 40px); text-align: center; }
+.casino-hero p { margin: 0 0 10px; color: var(--gold); font-size: .72rem; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; }
+.casino-hero h1 { margin: 0; font: 400 clamp(2.7rem, 6.4vw, 5.4rem)/.95 "Gloock", serif; text-wrap: balance; }
+.casino-hero span { display: block; max-width: 46ch; margin: 16px auto 0; font-size: clamp(.9rem, 1.4vw, 1.05rem); line-height: 1.55; opacity: .78; }
+.casino-categories { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: clamp(18px, 2.4vw, 34px) clamp(14px, 2vw, 28px); margin: 0 auto; }
+.casino-category { min-width: 0; flex: var(--count) 1 calc(var(--count) * 170px); display: flex; flex-direction: column; gap: 24px; }
+.casino-category h2 { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--gold); font-size: .7rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+.casino-category h2::after { content: ""; min-width: 12px; height: 1px; flex: 1; background: var(--gold-soft); }
+.casino-category > div { display: grid; grid-template-columns: repeat(var(--count), 1fr); gap: clamp(10px, 1.4vw, 18px); flex: 1; }
+.casino-spot {
+  --spread: 1;
   position: relative;
   min-width: 0;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 18px;
+  min-height: 235px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: clamp(14px, 2vw, 23px);
-  border: 2px solid var(--ink);
-  border-radius: 12px;
-  color: var(--ink);
-  text-align: left;
+  justify-content: center;
+  gap: 8px;
+  padding: 26px 10px 16px;
+  border: 1.5px dashed var(--gold-soft);
+  border-radius: 26px;
+  color: var(--ivory);
+  background: rgb(4 30 19 / 22%);
+  text-align: center;
+  transition: transform .2s ease, border-color .2s, background .2s, box-shadow .2s;
 }
-.game-card.coral { background: var(--coral); }
-.game-card.lime { background: var(--lime); }
-.game-card.violet { color: white; background: var(--purple); }
-.game-symbol { position: relative; flex: none; width: clamp(60px, 6vw, 82px); aspect-ratio: .9; }
-.card { position: absolute; left: 20%; top: 6%; width: 59%; height: 88%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8% 6%; overflow: hidden; border: 1.5px solid var(--ink); border-radius: 5px; color: var(--ink); background: #fffdf5; box-shadow: 2px 2px 0 rgb(23 21 43 / 24%); font-family: Georgia, serif; font-style: normal; line-height: 1; }
-.card.real { padding: 0; border: 0; border-radius: 6%; object-fit: cover; background: none; box-shadow: 2px 2px 0 rgb(23 21 43 / 24%); }
-.card:first-child { transform: translateX(-30%) rotate(-12deg); }
-.card:last-child { transform: translateX(30%) rotate(12deg); }
-.card b { align-self: flex-start; font-size: clamp(9px, 1vw, 13px); }
-.card span { flex: 1; display: grid; place-items: center; font-size: clamp(7px, .75vw, 10px); line-height: 1.05; text-align: center; }
-.napoletana { color: #5c351b; background: #f5dfaa; box-shadow: inset 0 0 0 3px #fff3cc, 2px 2px 0 rgb(23 21 43 / 24%); }
-.napoletana.denari { color: #ad2722; }
-.napoletana .coins { color: #c99a19; letter-spacing: -1px; text-shadow: 0 0 0 #5c351b; }
-.napoletana.bastoni span { color: #376a3e; font-size: clamp(16px, 2vw, 26px); font-weight: 900; text-shadow: 2px 0 #bc7629; }
-.napoletana.coppe span { position: relative; width: 60%; max-height: 45%; align-self: center; margin: auto; border: 4px solid #be3b28; border-top: 0; border-radius: 0 0 50% 50%; color: transparent; overflow: visible; }
-.napoletana.coppe span::after { content: ''; position: absolute; left: 40%; top: 100%; width: 20%; height: 55%; border-bottom: 3px solid #be3b28; background: #be3b28; }
-.french.hearts, .french.diamonds { color: #c62032; }
-.french span { font-size: clamp(6px, .65vw, 9px); }
-.uno-card { justify-content: center; padding: 0; border: 2px solid white; border-radius: 7px; color: white; box-shadow: 0 0 0 1.5px var(--ink), 2px 2px 0 rgb(23 21 43 / 30%); font-family: inherit; }
-.uno-card::before { content: ''; position: absolute; width: 68%; height: 82%; border-radius: 50%; background: white; transform: rotate(25deg); }
-.uno-card b { z-index: 1; align-self: center; color: inherit; font-size: clamp(15px, 1.8vw, 24px); text-shadow: 1px 1px 0 var(--ink); }
-.uno-card.red { background: #df2636; }.uno-card.blue { background: #176bc2; }.uno-card.yellow { color: #17152b; background: #f0c41a; }
-.die { position: absolute; width: 54%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(3, 1fr); padding: 12%; border: 1.5px solid var(--ink); border-radius: 17%; background: #fffdf5; box-shadow: 3px 4px 0 rgb(23 21 43 / 25%); transform: rotate(-12deg); }
-.die:last-child { right: 2%; bottom: 2%; transform: rotate(13deg); }
-.die span { width: 65%; aspect-ratio: 1; place-self: center; border-radius: 50%; background: transparent; }
-.die.five span:nth-child(1), .die.five span:nth-child(3), .die.five span:nth-child(5), .die.five span:nth-child(7), .die.five span:nth-child(9), .die.three span:nth-child(1), .die.three span:nth-child(5), .die.three span:nth-child(9) { background: var(--ink); }
-.game-card h3 { margin: 0; font-size: clamp(16px, 2vw, 24px); letter-spacing: -.04em; }
-.game-card p { margin: 5px 0 0; font-size: 9px; font-weight: 700; }
-.game-card > button { width: 36px; height: 36px; border: 2px solid currentColor; border-radius: 50%; background: transparent; font-size: 17px; }
-.game-card.featured { min-height: 155px; }
-.mini-games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
-.mini-games .game-card { grid-template-columns: auto 1fr; }
-.mini-games .game-card > button { position: absolute; right: 8px; bottom: 8px; width: 27px; height: 27px; font-size: 13px; }
-.mini-games .game-symbol { width: clamp(50px, 5vw, 64px); }
-.mini-games .game-card h3 { font-size: clamp(14px, 1.4vw, 18px); }
-.trust-line { height: 42px; display: flex; align-items: center; justify-content: center; gap: 32px; border-top: 1px solid var(--line); font-size: 10px; }
-.trust-line span::before { content: '◆'; margin-right: 32px; color: var(--coral); font-size: 7px; }
+.casino-spot:hover { --spread: 1.45; transform: translateY(-5px); border-color: var(--gold); }
+.casino-spot[aria-pressed="true"] { --spread: 1.3; border-style: solid; border-color: var(--gold); background: radial-gradient(80% 70% at 50% 35%, rgb(212 175 90 / 22%), rgb(4 30 19 / 30%)); box-shadow: 0 0 0 4px rgb(212 175 90 / 12%), 0 16px 30px rgb(0 0 0 / 35%); }
+.casino-chip { position: absolute; top: -11px; left: 50%; width: 64px; margin-left: -32px; padding: 3px 9px; border-radius: 999px; color: #2a1a0c; background: var(--gold); font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: 0; transform: scale(.8); transition: opacity .15s, transform .15s; }
+.casino-spot[aria-pressed="true"] .casino-chip { opacity: 1; transform: none; }
+.casino-game-name { font: 400 clamp(1.15rem, 1.8vw, 1.6rem) "Gloock", serif; }
+.game-symbol { position: relative; width: 100%; height: clamp(112px, 11vw, 138px); margin-bottom: 4px; }
+.casino-spot .card { position: absolute; left: 50%; top: 50%; width: clamp(52px, 5vw, 78px); height: auto; padding: 0; border: 0; border-radius: 4px; background: white; box-shadow: 0 6px 12px rgb(0 0 0 / 45%); transform: translate(calc(-50% + var(--x, 0px) * var(--spread)), -50%) rotate(calc(var(--angle, 0deg) * var(--spread))); transition: transform .25s cubic-bezier(.2,.8,.3,1); }
+.casino-spot .card:first-child { --x: -48px; --angle: -11deg; }
+.casino-spot .card:last-child { --x: 48px; --angle: 11deg; }
+.casino-spot .uno .card { width: clamp(52px, 5vw, 78px); }
+.game-symbol.dadi { display: block; }
+.casino-spot .die { position: absolute; left: 50%; top: 50%; width: clamp(50px, 4.8vw, 74px); aspect-ratio: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5%; padding: 14%; border: 0; border-radius: 20%; background: linear-gradient(145deg, #d93a2d, #a81f17); box-shadow: 0 6px 12px rgb(0 0 0 / 50%), inset 0 2px 3px rgb(255 255 255 / 30%); transform: translate(-95%, -44%) rotate(-14deg); }
+.casino-spot .die:last-child { transform: translate(-5%, -58%) rotate(18deg); }
+.casino-spot .die span { width: 70%; aspect-ratio: 1; place-self: center; border-radius: 50%; background: transparent; }
+.casino-spot .die.five span:nth-child(1), .casino-spot .die.five span:nth-child(3), .casino-spot .die.five span:nth-child(5), .casino-spot .die.five span:nth-child(7), .casino-spot .die.five span:nth-child(9), .casino-spot .die.three span:nth-child(1), .casino-spot .die.three span:nth-child(5), .casino-spot .die.three span:nth-child(9) { background: var(--ivory); box-shadow: inset 0 -1px 2px rgb(0 0 0 / 35%); }
+.casino-dock { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; margin: auto auto 0; padding: clamp(20px, 4vh, 40px) 0 26px; }
+.casino-main { min-height: 52px; padding: 0 30px; border: 0; border-radius: 999px; color: #2a1a0c; background: var(--gold); box-shadow: 0 6px 0 #8a6a2b, 0 12px 22px rgb(0 0 0 / 35%); font: 400 1.15rem "Gloock", serif; transition: transform .12s, box-shadow .12s; }
+.casino-main:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #8a6a2b, 0 16px 26px rgb(0 0 0 / 35%); }
+.casino-main:active { transform: translateY(4px); box-shadow: 0 2px 0 #8a6a2b, 0 4px 10px rgb(0 0 0 / 35%); }
+.casino-dock p { margin: 0; color: var(--gold); font-size: .74rem; letter-spacing: .04em; opacity: .85; text-align: center; }
 
-/* 02 — social first */
-.night { position: relative; color: white; background: var(--ink); }
-.night::before { content: ''; position: absolute; inset: 70px 0 0; opacity: .11; background-image: radial-gradient(#fff 0.7px, transparent .8px); background-size: 8px 8px; }
-.night > * { position: relative; z-index: 1; }
-.night .site-header { border-color: rgb(255 255 255 / 16%); }
-.night .outline-action { color: var(--ink); border-color: var(--lime); background: var(--lime); }
-.night-hero {
-  height: calc(100% - 116px);
-  display: grid;
-  grid-template-columns: .78fr 1.22fr;
-  gap: clamp(35px, 6vw, 90px);
-  align-items: center;
-  max-width: 1380px;
-  margin: auto;
-  padding: 32px clamp(30px, 6vw, 86px) 48px;
-}
-.night-copy .main-action { color: var(--ink); background: var(--lime); box-shadow: 4px 4px 0 var(--coral); }
-.room { width: min(57vw, 730px); justify-self: end; padding: clamp(20px, 3vw, 38px); border: 2px solid white; border-radius: 24px; background: #25223d; box-shadow: 15px 17px 0 var(--purple); transform: rotate(-1deg); }
-.room-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px; border-bottom: 1px solid rgb(255 255 255 / 15%); }
-.room-head small, .room-head b { display: block; }
-.room-head small { margin-bottom: 5px; color: #aaa5bc; font-size: 9px; }
-.room-head b { font-size: 24px; }
-.room-head > span { padding: 9px 12px; border-radius: 7px; color: var(--ink); background: var(--lime); font-size: 8px; font-weight: 900; }
-.room-head strong { margin-left: 8px; font-size: 14px; letter-spacing: .1em; }
-.players { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 28px 0; }
-.player, .invite { display: grid; justify-items: center; padding: 19px 8px; border: 1px solid rgb(255 255 255 / 19%); border-radius: 13px; color: white; background: #302c4c; }
-.player i, .invite i { width: 50px; height: 50px; display: grid; place-items: center; margin-bottom: 12px; border: 2px solid white; border-radius: 50%; font-size: 11px; font-style: normal; font-weight: 900; }
-.p1 i { color: var(--ink); background: var(--coral); }.p2 i { color: var(--ink); background: var(--lime); }.p3 i { background: var(--purple); }
-.player b, .invite b { font-size: 11px; }
-.player small, .invite small { margin-top: 5px; color: #aaa5bc; font-size: 8px; }
-.invite { border-style: dashed; font: inherit; }
-.invite i { border-color: #77718c; color: #aaa5bc; font-size: 22px; }
-.start-game { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border: 0; border-radius: 8px; color: var(--ink); background: white; font: 850 11px inherit; }
-.start-game span { font-size: 18px; }
-.ticker { position: absolute; bottom: 0; width: 100%; height: 46px; display: flex; align-items: center; justify-content: space-around; overflow: hidden; color: var(--ink); background: var(--coral); font-size: 10px; font-weight: 900; }
-.ticker i { font-size: 7px; font-style: normal; }
+/* Partner pairing and invitations */
+.room-overlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; color: var(--ink); background: rgb(8 48 31 / 78%); backdrop-filter: blur(8px); }
+.room-modal { position: relative; width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow: auto; padding: 34px; border: 2px solid #2a1a0c; border-radius: 18px; background: var(--paper); box-shadow: 9px 10px 0 var(--gold); }
+.room-modal h2 { margin: 0; font: 400 clamp(35px, 7vw, 52px)/1 "Gloock", serif; letter-spacing: -.04em; }
+.room-modal > p:not(.status) { line-height: 1.5; }
+.status { display: flex; align-items: center; gap: 9px; margin: 0 0 20px; font-size: 11px; font-weight: 800; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: #238455; box-shadow: 0 0 0 5px rgb(35 132 85 / 18%); }
+.room-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border: 1px solid var(--ink); border-radius: 50%; background: transparent; font-size: 22px; }
+.main-action { padding: 14px 19px; border: 0; border-radius: 999px; color: #2a1a0c; background: var(--gold); box-shadow: 0 4px 0 #8a6a2b; font-weight: 800; }
+.partner-action { width: 100%; margin-top: 18px; }
+.room-modal button:disabled { cursor: wait; opacity: .6; }
+.room-error { padding: 11px; border-radius: 7px; color: #8b2018; background: #ffd8d3; font-size: 12px; }
+.room-code-live { width: 100%; display: flex; align-items: center; justify-content: space-between; margin: 22px 0; padding: 17px; border: 2px solid var(--ink); border-radius: 9px; color: #2a1a0c; background: var(--gold); font-size: 22px; font-weight: 900; }
+.room-code-live small { font-size: 9px; letter-spacing: 0; }
+.room-note { opacity: .65; font-size: 11px; }
 
-/* 03 — catalogue first */
-.library { color: var(--ink); background: var(--paper); }
-.library-intro { height: 44%; display: grid; grid-template-columns: 1.4fr .6fr; align-items: end; padding: 30px clamp(25px, 5vw, 72px) 34px; }
-.library-intro h1 { font-size: clamp(58px, 6.7vw, 95px); }
-.library-side { justify-self: end; max-width: 290px; padding-bottom: 5px; }
-.library-side p { margin: 0 0 20px; font-size: 15px; line-height: 1.5; }
-.library-grid { height: calc(56% - 70px); display: grid; grid-template-columns: .9fr 1.2fr .9fr; border-top: 2px solid var(--ink); }
-.library-grid .game-card { min-height: 100%; border: 0; border-right: 2px solid var(--ink); border-radius: 0; padding: clamp(24px, 3vw, 42px); }
-.library-grid .game-card:last-child { border-right: 0; }
-.library-grid .game-card.featured { min-height: 100%; }
-.library-grid .game-symbol { width: clamp(70px, 8vw, 110px); }
-.library-grid .game-card h3 { font-size: clamp(21px, 2.7vw, 36px); }
-
-@media (max-width: 800px) {
-  .picker { height: 58px; padding: 8px 10px; }
-  .picker > span { display: none; }
-  .picker div { width: 100%; justify-content: center; }
-  .picker button { padding-inline: 10px; }
-  .mockup { height: auto; min-height: calc(100dvh - 58px); overflow: visible; }
-  .site-header { height: 62px; grid-template-columns: 1fr auto; padding: 0 18px; }
-  .site-header nav { display: none; }
-  .logo { font-size: 18px; }
-
-  .product-hero, .night-hero { height: auto; min-height: calc(100dvh - 162px); grid-template-columns: 1fr; padding: 40px 22px 70px; }
-  .hero-copy h1, .night-copy h1, .library-intro h1 { font-size: clamp(58px, 18vw, 79px); }
-  .product-showcase, .room { width: min(100%, 650px); justify-self: center; }
-  .product-showcase { margin-top: 15px; padding: 12px 8px 0 0; }
-  .product-window { box-shadow: 6px 7px 0 var(--ink); }
-  .live-badge { right: -5px; }
-  .trust-line { height: 42px; }
-  .trust-line span { display: none; }
-
-  .night-hero { gap: 45px; padding-bottom: 95px; }
-  .room { padding: 18px; box-shadow: 8px 9px 0 var(--purple); }
-  .players { grid-template-columns: repeat(2, 1fr); }
-  .ticker { position: relative; gap: 28px; justify-content: flex-start; padding-inline: 20px; }
-
-  .library-intro { height: auto; grid-template-columns: 1fr; gap: 34px; padding: 42px 22px; }
-  .library-side { justify-self: start; }
-  .library-grid { height: auto; grid-template-columns: 1fr; }
-  .library-grid .game-card { min-height: 180px; border-right: 0; border-bottom: 2px solid var(--ink); }
-  .library-grid .game-card:last-child { border-bottom: 0; }
+@media (max-width: 760px) {
+  .casino-rim { padding: 8px; }
+  .casino-felt { min-height: calc(100dvh - 16px); padding: 0 14px; border-radius: 20px; }
+  .casino-bar { padding-top: 18px; }
+  .casino-logo { font-size: 1.25rem; }
+  .casino-bar .casino-pair { display: none; }
+  .casino-line { padding: 0 13px; font-size: .78rem; }
+  .casino-hero { padding: 22px 0 20px; }
+  .casino-categories { flex-direction: column; gap: 18px; }
+  .casino-category { flex: none; gap: 14px; }
+  .casino-category > div { gap: 10px; }
+  .casino-spot { min-height: 180px; padding: 22px 8px 12px; border-radius: 20px; }
+  .casino-spot:hover { transform: none; }
+  .casino-category[data-count="1"] .casino-spot { min-height: 125px; display: grid; grid-template-columns: 52% 1fr; padding: 16px; text-align: left; justify-items: start; }
+  .casino-category[data-count="1"] .game-symbol { margin: 0; }
+  .game-symbol { height: 100px; }
+  .casino-spot .card { width: 48px; }
+  .casino-spot .card:first-child { --x: -38px; }
+  .casino-spot .card:last-child { --x: 38px; }
+  .casino-spot .uno .card { width: 48px; }
+  .casino-spot .die { width: 48px; }
+  .casino-dock { position: sticky; bottom: 0; width: auto; margin: 12px -14px 0; padding: 22px 14px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgb(8 48 31 / 96%) 34%); }
+  .casino-dock > div { width: 100%; }
+  .casino-main { flex: 1; }
+  .casino-dock p { display: none; }
 }
 
-@media (max-width: 420px) {
-  .header-actions { gap: 4px; }
-  .outline-action, .auth-action { padding: 8px 9px; font-size: 9px; }
-  .game-card { gap: 11px; }
-  .mini-games { grid-template-columns: 1fr; }
-  .mini-games .game-card { min-height: 105px; }
-  .product-window .game-card.featured { min-height: 130px; }
-  .room-head { align-items: flex-start; }
-  .room-head > span { padding: 7px; }
+@media (max-width: 390px) {
+  .casino-main { padding-inline: 18px; font-size: 1rem; }
+  .casino-dock .casino-line { padding-inline: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .casino-felt * { transition: none !important; }
 }

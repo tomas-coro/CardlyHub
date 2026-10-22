@@ -19,8 +19,6 @@ import { partnerOf } from './lib/partner-domain.ts'
 import { buildDeck as buildBriscolaDeck, newGame as newBriscolaGame, shuffle as shuffleBriscola } from './games/briscola/engine.ts'
 import type { GameState as BriscolaState } from './games/briscola/engine.ts'
 
-type Concept = 1 | 2 | 3
-
 const games = [
   { id: 'briscola', name: 'Briscola', meta: '2–4 giocatori', className: 'coral' },
   { id: 'machiavelli', name: 'Machiavelli', meta: '2–6 giocatori', className: 'lime' },
@@ -45,36 +43,6 @@ function loadRecents() {
     }
   } catch { /* use defaults */ }
   return defaultRecents
-}
-
-function Picker({ concept, onChange }: { concept: Concept; onChange: (concept: Concept) => void }) {
-  return (
-    <nav className="picker" aria-label="Scegli il mockup">
-      <span>Tre direzioni, una sola identità</span>
-      <div>
-        <button className={concept === 1 ? 'active' : ''} onClick={() => onChange(1)}>01 Prodotto</button>
-        <button className={concept === 2 ? 'active' : ''} onClick={() => onChange(2)}>02 Serata</button>
-        <button className={concept === 3 ? 'active' : ''} onClick={() => onChange(3)}>03 Giochi</button>
-      </div>
-    </nav>
-  )
-}
-
-function Logo() {
-  return <a className="logo" href="/" aria-label="CardlyHub, pagina iniziale"><i>◆</i>CardlyHub</a>
-}
-
-function Header({ onPartner, partnerName, user, authBusy, onAuth }: { onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
-  return (
-    <header className="site-header">
-      <Logo />
-      <nav aria-label="Navigazione principale"><a href="#games">Giochi</a><a href="#how">Come funziona</a></nav>
-      <div className="header-actions">
-        <button className="auth-action" onClick={onAuth} disabled={authBusy}>{authBusy ? 'Attendi…' : user ? `Esci · ${user.displayName?.split(' ')[0] ?? 'Profilo'}` : 'Accedi con Google'}</button>
-        <button className="outline-action" onClick={onPartner}>{partnerName ? `Con ${partnerName}` : 'Abbina account'}</button>
-      </div>
-    </header>
-  )
 }
 
 function GameArt({ game }: { game: Game }) {
@@ -111,85 +79,59 @@ function GameArt({ game }: { game: Game }) {
   )
 }
 
-function GameCard({ game, featured = false, onPlay }: { game: Game; featured?: boolean; onPlay?: (game: Game) => void }) {
-  return (
-    <article className={`game-card ${game.className} ${featured ? 'featured' : ''}`}>
-      <GameArt game={game} />
-      <div><h3>{game.name}</h3><p>{game.meta}</p></div>
-      <button aria-label={`Gioca a ${game.name}`} onClick={() => onPlay?.(game)}>↗</button>
-    </article>
-  )
-}
+function CasinoHome({ selected, onSelect, onPlay, onPartner, partnerName, user, authBusy, onAuth }: {
+  selected: Game
+  onSelect: (game: Game) => void
+  onPlay: (game: Game) => void
+  onPartner: () => void
+  partnerName?: string
+  user: User | null
+  authBusy: boolean
+  onAuth: () => void
+}) {
+  const categories = [
+    { name: 'Carte francesi', games: [games[3], games[1]] },
+    { name: 'Carte da briscola', games: [games[0]] },
+    { name: 'Carte UNO', games: [games[2]] },
+    { name: 'Dadi', games: [games[4]] },
+  ]
 
-function Product({ recentGames, onPlay, onPartner, partnerName, user, authBusy, onAuth }: { recentGames: Game[]; onPlay: (game: Game) => void; onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
-  return (
-    <section className="mockup product">
-      <Header onPartner={onPartner} partnerName={partnerName} user={user} authBusy={authBusy} onAuth={onAuth} />
-      <div className="product-hero">
-        <div className="hero-copy">
-          <p className="status"><i /> Giochi di carte, senza distanza</p>
-          <h1><span>Il tavolo</span><br />è già pronto.</h1>
-          <p className="lead">Abbina una volta i vostri account, scegli il gioco e invita direttamente la tua compagna.</p>
-          <div className="hero-actions"><button className="main-action" onClick={onPartner}>{partnerName ? `Gioca con ${partnerName}` : 'Abbina i vostri account'}</button><button className="plain-action">Esplora i giochi</button></div>
-        </div>
-        <div className="product-showcase">
-          <span className="live-badge"><i /> Partner online</span>
-          <div className="product-window" aria-label="Anteprima del catalogo giochi">
-            <div className="window-top"><span>CardlyHub / Giochi</span><i /><i /><i /></div>
-            <div className="window-body">
-              <div className="welcome"><div><small>Riprendi da dove eri rimasto</small><b>I tuoi giochi recenti</b></div><span>TS</span></div>
-              <GameCard game={recentGames[0]} featured onPlay={onPlay} />
-              <div className="mini-games">{recentGames.slice(1).map((game) => <GameCard key={game.id} game={game} onPlay={onPlay} />)}</div>
-            </div>
-          </div>
-          <span className="invite-badge"><b>2</b> account abbinati</span>
-        </div>
-      </div>
-      <footer className="trust-line"><b>Nessun download</b><span>Un solo abbinamento</span><span>Inviti diretti tra voi due</span></footer>
-    </section>
-  )
-}
+  return <div className="casino-rim"><section className="casino-felt">
+    <header className="casino-bar">
+      <a className="casino-logo" href="/" aria-label="CardlyHub, pagina iniziale">CardlyHub</a>
+      <nav aria-label="Account">
+        <button className="casino-line casino-pair" onClick={onPartner}>{partnerName ? `Con ${partnerName}` : 'Abbina account'}</button>
+        <button className="casino-line" onClick={onAuth} disabled={authBusy}>{authBusy ? 'Attendi…' : user ? `Esci · ${user.displayName?.split(' ')[0] ?? 'Profilo'}` : 'Accedi con Google'}</button>
+      </nav>
+    </header>
 
-function Night({ onPartner, partnerName, user, authBusy, onAuth }: { onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
-  return (
-    <section className="mockup night">
-      <Header onPartner={onPartner} partnerName={partnerName} user={user} authBusy={authBusy} onAuth={onAuth} />
-      <div className="night-hero">
-        <div className="night-copy">
-          <p className="status"><i /> Tutti online</p>
-          <h1>Stasera<br />si gioca.</h1>
-          <p className="lead">Il tavolo è già pronto. Manca solo il gruppo.</p>
-          <button className="main-action" onClick={onPartner}>{partnerName ? `Gioca con ${partnerName}` : 'Abbina account'}</button>
-        </div>
-        <div className="room" aria-label="Anteprima di un invito diretto">
-          <div className="room-head"><div><small>Sofia e Luca</small><b>Briscola</b></div><span><strong>ABBINATI</strong></span></div>
-          <div className="players">
-            <div className="player p1"><i>SO</i><b>Sofia</b><small>Ti invita</small></div>
-            <div className="player p2"><i>LU</i><b>Luca</b><small>Online</small></div>
-          </div>
-          <button className="start-game">Accetta e gioca <span>→</span></button>
-        </div>
-      </div>
-      <div className="ticker"><span>BRISCOLA</span><i>◆</i><span>POKER</span><i>◆</i><span>SCALA 40</span><i>◆</i><span>BURRACO</span><i>◆</i><span>UNO</span></div>
-    </section>
-  )
-}
+    <div className="casino-hero">
+      <p>Sala da gioco</p>
+      <h1>Un tavolo per due.<br />Scegli il gioco.</h1>
+      <span>Scegli un gioco, apri il tavolo e invita il tuo partner.</span>
+    </div>
 
-function Library({ onPartner, partnerName, user, authBusy, onAuth }: { onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
-  return (
-    <section className="mockup library">
-      <Header onPartner={onPartner} partnerName={partnerName} user={user} authBusy={authBusy} onAuth={onAuth} />
-      <div className="library-intro">
-        <div><p className="status"><i /> Scegli il prossimo tavolo</p><h1>Tutti i giochi.<br />Tutta la compagnia.</h1></div>
-        <div className="library-side"><p>Dai classici alle sfide veloci: scegli un gioco e invita direttamente il tuo partner.</p><button className="main-action">Vedi tutti i giochi</button></div>
+    <div className="casino-categories" role="group" aria-label="Scegli il gioco">
+      {categories.map((category) => <section className="casino-category" data-count={category.games.length} style={{ '--count': category.games.length } as React.CSSProperties} key={category.name}>
+        <h2>{category.name}</h2>
+        <div>
+          {category.games.map((game) => <button className="casino-spot" key={game.id} aria-pressed={selected.id === game.id} onClick={() => onSelect(game)}>
+            <span className="casino-chip">Scelto</span>
+            <GameArt game={game} />
+            <span className="casino-game-name">{game.name}</span>
+          </button>)}
+        </div>
+      </section>)}
+    </div>
+
+    <footer className="casino-dock">
+      <div>
+        <button className="casino-main" onClick={() => onPlay(selected)}>Gioca a {selected.name}</button>
+        <button className="casino-line" onClick={onPartner}>{partnerName ? `Invita ${partnerName}` : 'Abbina account'}</button>
       </div>
-      <div className="library-grid" id="games">
-        <GameCard game={games[0]} />
-        <GameCard game={games[1]} featured />
-        <GameCard game={games[2]} />
-      </div>
-    </section>
-  )
+      <p>Nessun download · Inviti diretti · Un solo abbinamento</p>
+    </footer>
+  </section></div>
 }
 
 function PartnerModal({ user, pair, pairLoading, invite, onClose, onLogin, onCreatePair, onAcceptInvite }: {
@@ -256,8 +198,8 @@ function PartnerModal({ user, pair, pairLoading, invite, onClose, onLogin, onCre
 }
 
 function App() {
-  const [concept, setConcept] = useState<Concept>(1)
   const [recentIds, setRecentIds] = useState(loadRecents)
+  const [selectedGame, setSelectedGame] = useState<Game>(() => games.find((game) => game.id === loadRecents()[0]) ?? games[0])
   const [openGame, setOpenGame] = useState<Game['id'] | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [authBusy, setAuthBusy] = useState(false)
@@ -267,7 +209,6 @@ function App() {
   const [pairLoading, setPairLoading] = useState(true)
   const [invite, setInvite] = useState<InviteSnapshot<BriscolaState> | null>(null)
   const [partnerOpen, setPartnerOpen] = useState(() => new URLSearchParams(location.search).has('pair'))
-  const recentGames = recentIds.map((id) => games.find((game) => game.id === id)!)
   const partner = user && pair ? partnerOf(pair, user.uid) : null
 
   useEffect(() => onAuthStateChanged(auth, (nextUser) => {
@@ -385,10 +326,16 @@ function App() {
 
   const incoming = Boolean(user && invite?.status === 'pending' && invite.guest_id === user.uid)
   return <main>
-    <Picker concept={concept} onChange={setConcept} />
-    {concept === 1 && <Product recentGames={recentGames} onPlay={(game) => void play(game)} onPartner={() => setPartnerOpen(true)} partnerName={partner?.name} user={user} authBusy={authBusy} onAuth={() => void toggleAuth()} />}
-    {concept === 2 && <Night onPartner={() => setPartnerOpen(true)} partnerName={partner?.name} user={user} authBusy={authBusy} onAuth={() => void toggleAuth()} />}
-    {concept === 3 && <Library onPartner={() => setPartnerOpen(true)} partnerName={partner?.name} user={user} authBusy={authBusy} onAuth={() => void toggleAuth()} />}
+    <CasinoHome
+      selected={selectedGame}
+      onSelect={setSelectedGame}
+      onPlay={(game) => void play(game)}
+      onPartner={() => setPartnerOpen(true)}
+      partnerName={partner?.name}
+      user={user}
+      authBusy={authBusy}
+      onAuth={() => void toggleAuth()}
+    />
     {(partnerOpen || incoming) && <PartnerModal
       user={user}
       pair={pair}
