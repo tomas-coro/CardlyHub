@@ -23,6 +23,14 @@ npx firebase-tools deploy --only firestore:rules
 ## Verifiche
 
 ```bash
+npm test
 npm run lint
 npm run build
+```
+
+## Pubblicazione
+
+```bash
+npm run build
+npx firebase-tools deploy --only hosting,firestore:rules
 ```
