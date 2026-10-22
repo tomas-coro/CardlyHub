@@ -3,6 +3,7 @@ import './machiavelli.css'
 import { apply, buildDeck, describe, newGame, playedCount, shuffle } from './engine.ts'
 import type { Action, Card, GameState } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
+import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
 
 // Tavolo di Machiavelli (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri").
 // Le regole vivono tutte in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, animazioni.
@@ -77,11 +78,14 @@ function Pile({ count, ready, label, onClick }: { count: number; ready: boolean;
 type Drop = { kind: 'group'; id: number } | { kind: 'new' } | { kind: 'hand'; before: number | null } | { kind: 'bad' } | null
 const dropKey = (d: Drop) => (d ? JSON.stringify(d) : '')
 
-export default function MachiavelliTable({ onBack, onResult }: { onBack: () => void; onResult?: (result: GameResult) => void }) {
+export default function MachiavelliTable({ onBack, onResult, online, onRematch }: { onBack: () => void; onResult?: (result: GameResult) => void; online?: OnlineGame<GameState>; onRematch?: () => void }) {
   const wide = useWide()
-  const [names, setNames] = useState<[string, string]>(loadNames)
+  const [names, setNames] = useState<[string, string]>(() => online ? [online.state.names[0], online.state.names[1]] : loadNames())
   const [jokers, setJokers] = useState(true)
-  const [game, setGame] = useState<GameState | null>(null)
+  const [localGame, setLocalGame] = useState<GameState | null>(null)
+  const game = online?.state ?? localGame
+  const saveGame = useCallback((state: GameState) => online ? online.onState(state) : setLocalGame(state), [online])
+  const me = online ? playerIndex(online) : game?.turn ?? 0
   const [cover, setCover] = useState(false)
   const [sel, setSel] = useState<number[]>([])
   const [flash, setFlash] = useState<number[]>([])
@@ -109,7 +113,7 @@ export default function MachiavelliTable({ onBack, onResult }: { onBack: () => v
     if (!reported.current) { reported.current = true; onResult?.({ winner: game.winner }) }
   }, [game, onResult])
 
-  const hand = useMemo(() => (game ? sortHand(game.hands[game.turn], sort, order) : []), [game, sort, order])
+  const hand = useMemo(() => (game ? sortHand(game.hands[me], sort, order) : []), [game, me, sort, order])
   // sempre l'ultima versione, per i listener della finestra (che non si ricreano a ogni render)
   const latest = useRef({ game, sel, hand, busy })
   useEffect(() => { latest.current = { game, sel, hand, busy } })
@@ -125,15 +129,16 @@ export default function MachiavelliTable({ onBack, onResult }: { onBack: () => v
   const act = useCallback((a: Action): GameState | null => {
     const g = latest.current.game
     if (!g) return null
+    if (online && g.turn !== me) { say('Non è il tuo turno'); return null }
     const r = apply(g, a)
     if ('error' in r) {
       say(r.error)
       if (a.type === 'move') setShake((n) => n + 1)
       return null
     }
-    setGame(r.state)
+    saveGame(r.state)
     return r.state
-  }, [say])
+  }, [me, online, saveGame, say])
 
   const doMove = useCallback((ids: number[], target: number | null) => {
     const next = act({ type: 'move', ids, target })
@@ -149,17 +154,17 @@ export default function MachiavelliTable({ onBack, onResult }: { onBack: () => v
     try { localStorage.setItem('machiavelli-names', JSON.stringify(clean)) } catch { /* se non si salva, pazienza */ }
     setNames(clean)
     const first = Math.random() < 0.5 ? 0 : 1
-    setGame(newGame({ names: clean, first }, shuffle(buildDeck(jokers))))
+    setLocalGame(newGame({ names: clean, first }, shuffle(buildDeck(jokers))))
     setSel([]); setOrder([]); setSort('manuale'); setOpen(false); setCover(true); setToast(null)
   }
 
   function endTurn() {
-    if (act({ type: 'end' })) { setSel([]); setCover(true); setOpen(false) }
+    if (act({ type: 'end' })) { setSel([]); if (!online) setCover(true); setOpen(false) }
   }
 
   // Pesca: la carta vola dal mazzo alla mano e si gira, poi il turno passa e scende la schermata "copri".
   async function draw() {
-    if (!game || busy) return
+    if (!game || busy || (online && game.turn !== me)) return
     const r = apply(game, { type: 'draw' })
     if ('error' in r) { say(r.error); return }
     const card = game.deck.length ? game.deck[game.deck.length - 1] : null
@@ -170,7 +175,7 @@ export default function MachiavelliTable({ onBack, onResult }: { onBack: () => v
       await flyCard(card, pileEl.getBoundingClientRect(), handEl)
       setBusy(false)
     }
-    setGame(r.state); setSel([]); setCover(true); setOpen(false)
+    saveGame(r.state); setSel([]); if (!online) setCover(true); setOpen(false)
     if (!card) say(r.state.phase === 'over' ? 'Mazzo finito e nessuno può più muovere.' : 'Mazzo finito: hai passato il turno.', 'ok')
   }
 
@@ -280,7 +285,6 @@ export default function MachiavelliTable({ onBack, onResult }: { onBack: () => v
     )
   }
 
-  const me = game.turn
   const other = (me + 1) % game.hands.length
   const played = playedCount(game)
   const over = game.phase === 'over'
@@ -390,8 +394,8 @@ export default function MachiavelliTable({ onBack, onResult }: { onBack: () => v
               )))}
             </div>
             <div className="over-actions">
-              <button className="btn main" onClick={start}>Rivincita</button>
-              <button className="btn ghost wide" onClick={() => setGame(null)}>Cambia nomi</button>
+              <button className="btn main" onClick={online ? onRematch : start}>Rivincita</button>
+              {!online && <button className="btn ghost wide" onClick={() => setLocalGame(null)}>Cambia nomi</button>}
               <button className="btn ghost wide" onClick={onBack}>Esci</button>
             </div>
           </div>

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import './dadi.css'
+import { CATEGORIES, apply, newGame, score, total, type Category, type GameState } from './engine.ts'
+import type { GameResult } from '../../lib/game-result.ts'
+import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
 
 // Tavolo dadi (Yahtzee, un giocatore): 5 dadi 3D, 3 tiri per turno, tocca un dado per bloccarlo.
 // Il lancio è animato a mano (requestAnimationFrame) per controllare rimbalzi, rotazione e velocità.
@@ -12,6 +15,7 @@ const ROT: Record<number, [number, number]> = { 1: [0, 0], 6: [0, 180], 3: [0, -
 
 const rr = (a: number, b: number) => a + Math.random() * (b - a)
 const rnd = () => 1 + Math.floor(Math.random() * 6)
+const LABEL: Record<Category, string> = { ones: 'Uno', twos: 'Due', threes: 'Tre', fours: 'Quattro', fives: 'Cinque', sixes: 'Sei', three: 'Tris', four: 'Poker', full: 'Full', small: 'Scala corta', large: 'Scala lunga', yahtzee: 'Yahtzee', chance: 'Chance' }
 const sgn = () => (Math.random() < 0.5 ? -1 : 1)
 
 type Arc = { p: number; t0: number; t1: number; w0: number; w1: number }
@@ -26,10 +30,15 @@ function loadFast() {
   try { return localStorage.getItem('dice-fast') === '1' } catch { return false }
 }
 
-export default function DadiTable({ onBack }: { onBack: () => void }) {
-  const [vals, setVals] = useState<number[]>(() => Array.from({ length: N }, rnd))
-  const [held, setHeld] = useState<boolean[]>(() => Array(N).fill(false))
-  const [left, setLeft] = useState(3)
+export default function DadiTable({ onBack, onResult, online, onRematch }: { onBack: () => void; onResult?: (result: GameResult) => void; online?: OnlineGame<GameState>; onRematch?: () => void }) {
+  const [localGame, setLocalGame] = useState<GameState>(() => newGame({ names: ['Tomas', 'Lei'], first: 0 }))
+  const game = online?.state ?? localGame
+  const saveGame = (state: GameState) => online ? online.onState(state) : setLocalGame(state)
+  const me = online ? playerIndex(online) : game.turn
+  const myTurn = game.phase === 'playing' && game.turn === me
+  const [vals, setVals] = useState<number[]>(game.dice)
+  const held = game.held
+  const left = game.rollsLeft
   const [busy, setBusy] = useState(false)
   const [skipping, setSkipping] = useState(false)
   const [fast, setFast] = useState(loadFast)
@@ -49,6 +58,7 @@ export default function DadiTable({ onBack }: { onBack: () => void }) {
   const fastRef = useRef(fast)
   const last = useRef(0)
   const raf = useRef(0)
+  const reported = useRef(false)
 
   // dado fermo: posa finale con la sua piccola imperfezione di posizione e rotazione
   const rest = (i: number) => {
@@ -64,10 +74,19 @@ export default function DadiTable({ onBack }: { onBack: () => void }) {
   }
 
   useEffect(() => {
-    for (let i = 0; i < N; i++) { jitter(i); rest(i) }
-    return () => cancelAnimationFrame(raf.current)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (busy) return
+    for (let i = 0; i < N; i++) { valsRef.current[i] = game.dice[i]; jitter(i); rest(i) }
+    // oxlint-disable-next-line react/set-state-in-effect -- sincronizza l'animazione con lo snapshot remoto
+    setVals(game.dice)
+  }, [busy, game.dice])
+  useEffect(() => () => cancelAnimationFrame(raf.current), [])
+  useEffect(() => {
+    if (game.phase !== 'over') { reported.current = false; return }
+    if (!reported.current) {
+      reported.current = true
+      onResult?.({ winner: game.winner, scores: [total(game.scores[0]), total(game.scores[1])] })
+    }
+  }, [game, onResult])
 
   // prepara un tiro: quattro archi di rimbalzo decrescenti; avanzamento e rotazione seguono gli archi
   const makeThrow = (i: number, v: number, order: number): Throw => {
@@ -148,34 +167,37 @@ export default function DadiTable({ onBack }: { onBack: () => void }) {
 
   const roll = () => {
     if (busy) { accelerate(); return }
-    if (left === 0) return
-    setLeft(left - 1)
+    if (!myTurn || left === 0) return
+    const result = apply(game, { type: 'roll' }, rnd)
+    if ('error' in result) return
+    saveGame(result.state)
     skip.current = false; speed.current = 1
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const todo: Throw[] = []
     let n = 0
     for (let i = 0; i < N; i++) {
       if (held[i]) continue
-      const v = rnd()
+      const v = result.state.dice[i]
       if (reduce) { valsRef.current[i] = v; jitter(i); rest(i) } else todo.push(makeThrow(i, v, n++))
     }
-    if (!todo.length) { setVals(valsRef.current.slice()); return }
+    if (!todo.length) { setVals(result.state.dice); return }
     active.current = todo
     last.current = performance.now()
     setBusy(true)
     raf.current = requestAnimationFrame(tick)
   }
 
-  const newTurn = () => {
-    if (busy) return
-    for (let i = 0; i < N; i++) { valsRef.current[i] = rnd(); jitter(i); rest(i) }
-    setVals(valsRef.current.slice()); setHeld(Array(N).fill(false)); setLeft(3)
-  }
-
   const toggleHold = (i: number) => {
     if (busy) { accelerate(); return }
-    if (left === 3 || left === 0) return
-    setHeld((h) => h.map((x, k) => (k === i ? !x : x)))
+    if (!myTurn) return
+    const result = apply(game, { type: 'hold', index: i })
+    if (!('error' in result)) saveGame(result.state)
+  }
+
+  const choose = (category: Category) => {
+    if (!myTurn || busy) return
+    const result = apply(game, { type: 'score', category })
+    if (!('error' in result)) saveGame(result.state)
   }
 
   const toggleFast = () => {
@@ -184,18 +206,20 @@ export default function DadiTable({ onBack }: { onBack: () => void }) {
     try { localStorage.setItem('dice-fast', next ? '1' : '0') } catch { /* preferenza non salvata: resta valida per questa sessione */ }
   }
 
-  const hint = busy ? 'Tocca il tavolo o Accelera per velocizzare.'
-    : left === 3 ? 'Primo tiro: tutti e cinque i dadi.'
-    : left === 0 ? 'Tiri finiti: ora sceglieresti una combinazione.'
-    : 'Tocca i dadi da tenere, poi tira gli altri.'
-  const rollLabel = busy ? (skipping ? 'Accelero…' : 'Accelera') : left === 3 ? 'Tira' : left === 0 ? 'Finito' : `Tira ancora (${left})`
+  const hint = game.phase === 'over' ? (game.winner === null ? 'Partita finita in parità.' : `${game.names[game.winner]} ha vinto.`)
+    : !myTurn ? `Tocca a ${game.names[game.turn]}.`
+      : busy ? 'Tocca il tavolo o Accelera per velocizzare.'
+        : left === 3 ? 'Primo tiro: tutti e cinque i dadi.'
+          : left === 0 ? 'Tiri finiti: scegli una categoria.'
+            : 'Tocca i dadi da tenere, poi tira gli altri o scegli una categoria.'
+  const rollLabel = busy ? (skipping ? 'Accelero…' : 'Accelera') : left === 3 ? 'Tira' : left === 0 ? 'Scegli un punteggio' : `Tira ancora (${left})`
 
   return (
     <section className="dadi-screen" aria-label="Dadi, Yahtzee">
       <button className="dadi-back" onClick={onBack}>← Indietro</button>
       <div className="dadi-table">
         <div className="dadi-hud">
-          <span>Yahtzee</span>
+          <span>Yahtzee · {game.names[me]}</span>
           <span className="dadi-tries" role="img" aria-label={`Tiri rimasti: ${left}`}>
             {[0, 1, 2].map((k) => <i key={k} className={k >= left ? 'used' : ''} />)}
           </span>
@@ -219,11 +243,21 @@ export default function DadiTable({ onBack }: { onBack: () => void }) {
             ))}
           </div>
         </div>
+        <div className="dadi-sheet" aria-label="Scheda punteggi">
+          {CATEGORIES.map((category) => {
+            const mine = game.scores[me][category]
+            const other = game.scores[1 - me][category]
+            return <button key={category} disabled={!myTurn || busy || left === 3 || mine !== undefined} onClick={() => choose(category)}>
+              <span>{LABEL[category]}</span><small>{mine ?? (left < 3 ? score(category, game.dice) : '—')} · {game.names[1 - me]}: {other ?? '—'}</small>
+            </button>
+          })}
+        </div>
         <div className="dadi-actions">
           <p className="dadi-hint" aria-live="polite">{hint}</p>
-          <button className={`dadi-roll${busy ? ' skip' : ''}`} type="button" disabled={!busy && left === 0} onClick={roll}>{rollLabel}</button>
+          {game.phase === 'over' && online && <button className="dadi-roll" type="button" onClick={onRematch}>Rivincita</button>}
+          <button className={`dadi-roll${busy ? ' skip' : ''}`} type="button" disabled={!busy && (!myTurn || left === 0 || game.phase === 'over')} onClick={roll}>{rollLabel}</button>
           <div className="dadi-row">
-            <button className="dadi-link" type="button" onClick={newTurn}>Nuovo turno</button>
+            <span className="dadi-total">{game.names[0]} {total(game.scores[0])} · {game.names[1]} {total(game.scores[1])}</span>
             <button className="dadi-opt" type="button" aria-pressed={fast} onClick={toggleFast}>{fast ? 'Lancio veloce: sì' : 'Lancio veloce: no'}</button>
           </div>
         </div>

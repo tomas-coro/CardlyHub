@@ -38,7 +38,7 @@ function useWide() {
   return wide
 }
 
-const deal = (): GameState => newGame({ names: NAMES, first: Math.random() < 0.5 ? 0 : 1 }, shuffle(buildDeck()))
+const deal = (names = NAMES): GameState => newGame({ names, first: Math.random() < 0.5 ? 0 : 1 }, shuffle(buildDeck()))
 
 function Face({ card, deck, cls = '' }: { card: Card; deck: DeckStyle; cls?: string }) {
   return <span className={`bk-cd ${cls}`}><img src={imgOf(card, deck)} alt={cardName(card)} /></span>
@@ -87,6 +87,16 @@ export default function BriscolaTable({ onBack, onResult, deck, online }: { onBa
     if (online) online.onState(state)
     else setLocalGame(state)
   }
+  // Rete di sicurezza online: se chi ha giocato la seconda carta perde la rete prima di raccogliere, la presa
+  // resterebbe ferma per sempre. Dopo 4 secondi la raccoglie chiunque la veda (il risultato è identico, la mossa è pura).
+  useEffect(() => {
+    if (!online || busy || game.table.length < 2) return
+    const t = window.setTimeout(() => {
+      const c = apply(game, { type: 'collect' })
+      if (!('error' in c)) online.onState(c.state)
+    }, 4000)
+    return () => clearTimeout(t)
+  }, [online, busy, game])
   const me = onlinePlayer ?? viewer
   const op = 1 - me
   const trump = game.trump.s
@@ -158,7 +168,7 @@ export default function BriscolaTable({ onBack, onResult, deck, online }: { onBa
 
   function again() {
     timers.current.forEach(clearTimeout)
-    const g = deal()
+    const g = deal(game.names)
     drawn.current = null
     saveGame(g); setViewer(g.turn); setCover(online ? null : g.turn); setBusy(false); setTaker(null); setFreshId(null)
   }
@@ -237,7 +247,7 @@ export default function BriscolaTable({ onBack, onResult, deck, online }: { onBa
             <h3>{win === -1 ? 'Pareggio, 60 a 60' : `Vince ${game.names[win ?? 0]}`}</h3>
             <div className="bk-res"><div>{sc[0]}<small>{game.names[0]}</small></div><div>{sc[1]}<small>{game.names[1]}</small></div></div>
             <p>{win === -1 ? 'Servivano più di 60 punti su 120 per vincere.' : 'Servono più di 60 punti su 120 per vincere.'}</p>
-            <button className="bk-btn" onClick={again}>Altra partita</button>
+            <button className="bk-btn" onClick={again}>{online ? 'Rivincita' : 'Altra partita'}</button>
             <button className="bk-btn bk-ghost" onClick={onBack}>Esci</button>
           </div>
         )}

@@ -3,6 +3,7 @@ import { doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, updat
 import { db } from './firebase.ts'
 import { acceptPair as acceptedPair, createInvite as inviteData, createPair as pairData } from './partner-domain.ts'
 import type { Invite, Pair } from './partner-domain.ts'
+import { decodeState, encodeState } from './online-game.ts'
 
 export type PairSnapshot = Pair & { id: string }
 export type InviteSnapshot<State = unknown> = Invite<State> & { id: string }
@@ -42,15 +43,21 @@ export function subscribePair(pairId: string, next: (pair: PairSnapshot) => void
 
 export async function invitePartner<State>(pair: PairSnapshot, userId: string, game: string, state: State) {
   const reference = doc(db, 'pairs', pair.id, 'invites', 'active')
-  await setDoc(reference, { ...inviteData(pair, userId, game, state), updated_at: serverTimestamp() })
+  await setDoc(reference, { ...inviteData(pair, userId, game, encodeState(state)), updated_at: serverTimestamp() })
 }
 
 export function subscribeInvite<State>(pairId: string, next: (invite: InviteSnapshot<State> | null) => void, fail: (error: Error) => void) {
   return onSnapshot(doc(db, 'pairs', pairId, 'invites', 'active'), (snapshot) => {
-    next(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } as InviteSnapshot<State> : null)
+    if (!snapshot.exists()) return next(null)
+    try {
+      const data = snapshot.data() as Invite<unknown>
+      next({ id: snapshot.id, ...data, state: decodeState<State>(data.state) })
+    } catch (error) {
+      fail(error instanceof Error ? error : new Error('Invito illeggibile.'))
+    }
   }, fail)
 }
 
 export const acceptInvite = (pairId: string) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { status: 'accepted', updated_at: serverTimestamp() })
 export const closeInvite = (pairId: string) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { status: 'closed', updated_at: serverTimestamp() })
-export const updateInviteState = <State>(pairId: string, state: State) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { state, updated_at: serverTimestamp() })
+export const updateInviteState = <State>(pairId: string, state: State) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { state: encodeState(state), updated_at: serverTimestamp() })

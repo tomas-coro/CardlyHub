@@ -4,6 +4,7 @@ import './uno.css'
 import { COLORS, DEFAULT_RULES, GOAL, MERCY_LIMIT, apply, buildDeck, canStack, isNumber, newGame, playError, shuffle, siblings, topCard } from './engine.ts'
 import type { Action, Card, Color, GameState, Rules, UnoEvent } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
+import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
 import { COL, COLOR_NAME, cardLabel } from './colors.ts'
 import { UnoFace } from './UnoFace.tsx'
 import backUrl from '../../assets/cards/backs/uno-back.svg'
@@ -11,7 +12,7 @@ import backUrl from '../../assets/cards/backs/uno-back.svg'
 // Tavolo di UNO (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri", nessun bot).
 // Le regole vivono tutte in engine.ts (anche i controlli "si può giocare?"): qui c'è solo interfaccia e animazioni.
 
-const NAMES = ['Tomas', 'Lei']
+const DEFAULT_NAMES = ['Tomas', 'Lei']
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const MODES: [Rules['mode'], string, string][] = [
@@ -44,13 +45,14 @@ function useWide() {
 
 const deal = (rules: Rules): { game: GameState; first: number } => {
   const first = Math.random() < 0.5 ? 0 : 1
-  return { game: newGame({ names: NAMES, rules, first }, shuffle(buildDeck())), first }
+  return { game: newGame({ names: DEFAULT_NAMES, rules, first }, shuffle(buildDeck())), first }
 }
 
 const Back = () => <span className="uk-cd"><img src={backUrl} alt="" /></span>
 
 // Testo dei toast a partire da cosa è successo nell'ultima mossa (gli eventi li produce il motore).
-function describe(events: UnoEvent[]): string {
+function describe(events: UnoEvent[], names = DEFAULT_NAMES): string {
+  const NAMES = names
   const out: string[] = []
   for (const e of events) {
     if (e.type === 'draw') {
@@ -72,12 +74,15 @@ const sortHand = (h: Card[]) => {
   return h.slice().sort((x, y) => ord[x.c] - ord[y.c] || val(x) - val(y))
 }
 
-export default function UnoTable({ onBack, onResult }: { onBack: () => void; onResult?: (result: GameResult) => void }) {
+export default function UnoTable({ onBack, onResult, online, onRematch }: { onBack: () => void; onResult?: (result: GameResult) => void; online?: OnlineGame<GameState>; onRematch?: () => void }) {
   const wide = useWide()
-  const [game, setGame] = useState<GameState>(() => newGame({ names: NAMES, rules: DEFAULT_RULES, first: 0 }, shuffle(buildDeck())))
-  const [started, setStarted] = useState(false)             // false finché non si è premuto "Inizia la partita"
-  const [rulesOpen, setRulesOpen] = useState(true)
-  const [draft, setDraft] = useState<Rules>(DEFAULT_RULES)
+  const [localGame, setLocalGame] = useState<GameState>(() => newGame({ names: DEFAULT_NAMES, rules: DEFAULT_RULES, first: 0 }, shuffle(buildDeck())))
+  const game = online?.state ?? localGame
+  const NAMES = game.names
+  const saveGame = (state: GameState) => online ? online.onState(state) : setLocalGame(state)
+  const [started, setStarted] = useState(Boolean(online))   // false finché non si è premuto "Inizia la partita"
+  const [rulesOpen, setRulesOpen] = useState(!online)
+  const [draft, setDraft] = useState<Rules>(online?.state.rules ?? DEFAULT_RULES)
   const [viewer, setViewer] = useState(0)                   // chi sta guardando lo schermo
   const [cover, setCover] = useState<number | null>(null)   // a chi passare il telefono (null = nessuno)
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null)
@@ -110,7 +115,7 @@ export default function UnoTable({ onBack, onResult }: { onBack: () => void; onR
     }
   }, [game, onResult])
 
-  const me = viewer
+  const me = online ? playerIndex(online) : viewer
   const op = 1 - me
   const over = game.phase === 'over'
   const hand = game.hands[me]
@@ -174,10 +179,10 @@ export default function UnoTable({ onBack, onResult }: { onBack: () => void; onR
     const r = apply(game, a, shuffle)
     if ('error' in r) { say(r.error); return }
     const s = r.state
-    setGame(s)
+    saveGame(s)
     if (a.type === 'uno') return                        // dichiarare UNO non cambia turno né animazioni
     setMulti(null)
-    const text = describe(s.events)
+    const text = describe(s.events, game.names)
     if (text) say(text)
     drawn.current = s.events.flatMap((e) => (e.type === 'draw' ? [[e.p, e.n] as [number, number]] : []))
     if (a.type === 'play') {
@@ -187,17 +192,18 @@ export default function UnoTable({ onBack, onResult }: { onBack: () => void; onR
       // UNO dichiarato e giusto: appare la scritta
       if (game.uno[p] && game.hands[p].length - a.cards.length === 1 && !s.events.some((e) => e.type === 'draw' && e.why === 'uno')) setFlash(++toastN.current)
     }
-    if (s.phase !== 'over' && s.turn !== viewer) setCover(s.turn)  // chi deve giocare ora riceve il telefono
+    if (!online && s.phase !== 'over' && s.turn !== viewer) setCover(s.turn)  // in locale si passa il telefono
   }
 
   function startMatch(rules: Rules) {
     const d = deal(rules)
     drawn.current = null
-    setGame(d.game); setStarted(true); setRulesOpen(false); setViewer(d.first); setCover(d.first)
+    setLocalGame(d.game); setStarted(true); setRulesOpen(false); setViewer(d.first); setCover(d.first)
     setMulti(null); setFresh(null); setToast(null); setFlash(0); setOpen(false)
   }
 
   function openRules() {
+    if (online) return
     setDraft(game.rules)
     setRulesOpen(true)
   }
@@ -209,7 +215,8 @@ export default function UnoTable({ onBack, onResult }: { onBack: () => void; onR
   }
 
   function reorder(ids: number[]) {
-    setGame((g) => ({ ...g, hands: g.hands.map((h, p) => (p === me ? ids.map((id) => h.find((c) => c.id === id)!) : h)) }))
+    if (online && !myTurn) return
+    saveGame({ ...game, hands: game.hands.map((h, p) => (p === me ? ids.map((id) => h.find((c) => c.id === id)!) : h)) })
   }
 
   function tap(c: Card, el: HTMLElement) {
@@ -283,7 +290,7 @@ export default function UnoTable({ onBack, onResult }: { onBack: () => void; onR
           <div className={`uk-av${me === 1 ? ' uk-lei' : ''}`}>{NAMES[me][0]}</div>
           <div className="uk-who"><b>{NAMES[me]}</b><span>{sub}{score}</span></div>
           <span className="uk-sp" />
-          <button className="uk-pill uk-btnp" onClick={openRules} aria-label="Regole della casa">Regole</button>
+          {!online && <button className="uk-pill uk-btnp" onClick={openRules} aria-label="Regole della casa">Regole</button>}
           <button className={`uk-pill uk-btnp uk-exit${askExit ? ' warn' : ''}`} onClick={leave}>{askExit ? 'Esci dalla partita?' : '‹ Esci'}</button>
         </div>
 
@@ -411,8 +418,8 @@ export default function UnoTable({ onBack, onResult }: { onBack: () => void; onR
             {game.rules.mode !== 'single' && <div className="uk-res"><div>{a}<small>{NAMES[0]}</small></div><div>{b}<small>{NAMES[1]}</small></div></div>}
             <div className="uk-btns">
               {game.matchOver
-                ? <><button className="uk-btn" onClick={() => startMatch(game.rules)}>Altra partita</button><button className="uk-btn uk-alt" onClick={openRules}>Cambia regole</button></>
-                : <button className="uk-btn" onClick={() => act({ type: 'nextRound' })}>Prossima mano</button>}
+                ? online ? <button className="uk-btn" onClick={onRematch}>Rivincita</button> : <><button className="uk-btn" onClick={() => startMatch(game.rules)}>Altra partita</button><button className="uk-btn uk-alt" onClick={openRules}>Cambia regole</button></>
+                : (!online || me === 0) ? <button className="uk-btn" onClick={() => act({ type: 'nextRound' })}>Prossima mano</button> : <p>Attendi che {NAMES[0]} avvii la prossima mano.</p>}
               <button className="uk-btn uk-alt" onClick={onBack}>Esci</button>
             </div>
           </div>

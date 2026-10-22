@@ -229,3 +229,6 @@ a { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .casino-felt * { transition: none !important; }
 }
+
+.online-error { position: fixed; z-index: 100; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: min(92vw, 640px); margin: 0; padding: 10px 16px; border-radius: 14px; color: #fff; background: #a81f17; box-shadow: 0 8px 24px rgb(0 0 0 / 40%); font: 600 .9rem "Hanken Grotesk", sans-serif; }
+.online-error button { min-height: 36px; padding: 0 12px; border: 1px solid rgb(255 255 255 / 60%); border-radius: 999px; color: #fff; background: transparent; }

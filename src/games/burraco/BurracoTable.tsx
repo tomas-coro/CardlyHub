@@ -3,12 +3,13 @@ import './burraco.css'
 import { DEFAULT_RULES, actionError, apply, buildDeck, burraco, isWildCard, newGame, shortName, shuffle, tablePoints, topCard } from './engine.ts'
 import type { Action, BurracoEvent, Card, End, GameState, Meld, Rules } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
+import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
 
 // Tavolo di Burraco (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri", nessun bot).
 // Le regole e i punti vivono tutti in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, pannelli.
 // Layout e classi vengono dal mockup approvato mockups/11-burraco-tavolo.html (classi con prefisso bu-).
 
-const NAMES = ['Tomas', 'Lei']
+const DEFAULT_NAMES = ['Tomas', 'Lei']
 const SPRITE = `${import.meta.env.BASE_URL}cards/french/svg-cards.svg`
 const SUIT_ID = { h: 'heart', d: 'diamond', c: 'club', s: 'spade' } as const
 const SUIT_LABEL = { h: 'cuori', d: 'quadri', c: 'fiori', s: 'picche' } as const
@@ -41,14 +42,15 @@ function useWide() {
 
 const newMatch = (rules: Rules) => {
   const first = Math.random() < 0.5 ? 0 : 1
-  return { game: newGame({ names: NAMES, rules, first }, shuffle(buildDeck())), first }
+  return { game: newGame({ names: DEFAULT_NAMES, rules, first }, shuffle(buildDeck())), first }
 }
 
 const Svg = ({ id }: { id: string }) => <svg viewBox="0 0 169.075 244.64" aria-hidden="true"><use href={`${SPRITE}#${id}`} /></svg>
 const Back = () => <span className="bu-pc"><Svg id="back" /></span>
 
 // Testo dei toast a partire da cosa è successo nell'ultima mossa (gli eventi li produce il motore).
-function describe(events: BurracoEvent[]): string {
+function describe(events: BurracoEvent[], names = DEFAULT_NAMES): string {
+  const NAMES = names
   const out: string[] = []
   for (const e of events) {
     if (e.type === 'take') out.push(`${NAMES[e.p]} prende il pozzo (${e.n} ${e.n === 1 ? 'carta' : 'carte'})`)
@@ -111,12 +113,15 @@ function MeldView({ m, side, rules }: { m: Meld; side: 'mine' | 'her'; rules: Ru
 type Over = { meld?: HTMLElement | null; zone?: HTMLElement | null; dis?: HTMLElement | null; hand?: HTMLElement | null }
 type Aim = { el?: Element | null; bad?: boolean; msg?: string; ins?: { x: number; y: number; h: number } | null }
 
-export default function BurracoTable({ onBack, onResult }: { onBack: () => void; onResult?: (result: GameResult) => void }) {
+export default function BurracoTable({ onBack, onResult, online, onRematch }: { onBack: () => void; onResult?: (result: GameResult) => void; online?: OnlineGame<GameState>; onRematch?: () => void }) {
   const wide = useWide()
-  const [game, setGame] = useState<GameState>(() => newMatch(DEFAULT_RULES).game)
-  const [started, setStarted] = useState(false)
-  const [rulesMode, setRulesMode] = useState<'edit' | 'view' | null>('edit')
-  const [draft, setDraft] = useState<Rules>(DEFAULT_RULES)
+  const [localGame, setLocalGame] = useState<GameState>(() => newMatch(DEFAULT_RULES).game)
+  const game = online?.state ?? localGame
+  const NAMES = game.names
+  const saveGame = (state: GameState) => online ? online.onState(state) : setLocalGame(state)
+  const [started, setStarted] = useState(Boolean(online))
+  const [rulesMode, setRulesMode] = useState<'edit' | 'view' | null>(online ? null : 'edit')
+  const [draft, setDraft] = useState<Rules>(online?.state.rules ?? DEFAULT_RULES)
   const [viewer, setViewer] = useState(0)                   // chi sta guardando lo schermo
   const [cover, setCover] = useState<number | null>(null)   // a chi passare il telefono (null = nessuno)
   const [sel, setSel] = useState<number[]>([])
@@ -145,7 +150,7 @@ export default function BurracoTable({ onBack, onResult }: { onBack: () => void;
     }
   }, [game, onResult])
 
-  const me = viewer
+  const me = online ? playerIndex(online) : viewer
   const op = 1 - me
   const over = game.phase === 'over'
   const hand = game.hands[me]
@@ -203,18 +208,18 @@ export default function BurracoTable({ onBack, onResult }: { onBack: () => void;
     const r = apply(game, a, shuffle)
     if ('error' in r) { say(r.error, true); return false }
     const s = r.state
-    setGame(s)
+    saveGame(s)
     setSel([])
     setEndHidden(false)
-    const text = describe(s.events)
+    const text = describe(s.events, game.names)
     if (text) say(text)
-    if (s.phase !== 'over' && s.turn !== viewer) setCover(s.turn)  // chi deve giocare ora riceve il telefono
+    if (!online && s.phase !== 'over' && s.turn !== viewer) setCover(s.turn)  // in locale si passa il telefono
     return true
   }
 
   function startMatch(rules: Rules) {
     const d = newMatch(rules)
-    setGame(d.game); setStarted(true); setRulesMode(null); setViewer(d.first); setCover(d.first)
+    setLocalGame(d.game); setStarted(true); setRulesMode(null); setViewer(d.first); setCover(d.first)
     setSel([]); setToast(null); setOpen(false); setEndHidden(false)
   }
 
@@ -224,7 +229,10 @@ export default function BurracoTable({ onBack, onResult }: { onBack: () => void;
     later(() => setAskExit(false), 3000)
   }
 
-  const setHand = (cards: Card[]) => setGame((g) => ({ ...g, hands: g.hands.map((h, p) => (p === me ? cards : h)) }))
+  const setHand = (cards: Card[]) => {
+    if (online && !myTurn) return
+    saveGame({ ...game, hands: game.hands.map((h, p) => (p === me ? cards : h)) })
+  }
 
   // ── clic ──
   const suppress = useRef(false)                         // il click che segue un trascinamento non conta
@@ -512,8 +520,8 @@ export default function BurracoTable({ onBack, onResult }: { onBack: () => void;
             ))}
           </div>
           <div className="bu-acts">
-            <button className="bu-abtn" disabled={hand.length < 2} onClick={() => { setHand(sortBySuit(hand)); say('Ordinate per seme.') }} aria-label="Ordina per seme">Seme</button>
-            <button className="bu-abtn" disabled={hand.length < 2} onClick={() => { setHand(sortByValue(hand)); say('Ordinate per valore.') }} aria-label="Ordina per valore">Valore</button>
+            <button className="bu-abtn" disabled={hand.length < 2 || (Boolean(online) && !myTurn)} onClick={() => { setHand(sortBySuit(hand)); say('Ordinate per seme.') }} aria-label="Ordina per seme">Seme</button>
+            <button className="bu-abtn" disabled={hand.length < 2 || (Boolean(online) && !myTurn)} onClick={() => { setHand(sortByValue(hand)); say('Ordinate per valore.') }} aria-label="Ordina per valore">Valore</button>
             <button className="bu-abtn bu-main" disabled={!myTurn || game.phase !== 'play' || selCards.length < 3} onClick={tapMeldCards}>Cala</button>
             <button className="bu-abtn" disabled={!myTurn || game.phase !== 'play' || selCards.length !== 1} onClick={() => act({ type: 'discard', id: selCards[0].id })}>Scarta</button>
             <button className="bu-abtn" style={{ minWidth: 44, padding: 0 }} aria-label={open ? 'Chiudi la mano' : 'Apri la mano'} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '▲' : '▼'}</button>
@@ -558,7 +566,7 @@ export default function BurracoTable({ onBack, onResult }: { onBack: () => void;
                   {started && <button className="bu-btn bu-alt" onClick={() => setRulesMode(null)}>Torna alla partita</button>}
                 </>
                 : <>
-                  <button className="bu-btn bu-alt" onClick={() => setRulesMode('edit')}>Nuova partita</button>
+                  {!online && <button className="bu-btn bu-alt" onClick={() => setRulesMode('edit')}>Nuova partita</button>}
                   <button className="bu-btn" onClick={() => setRulesMode(null)}>Chiudi</button>
                 </>}
             </div>
@@ -583,8 +591,8 @@ export default function BurracoTable({ onBack, onResult }: { onBack: () => void;
             </table>
             <div className="bu-btns">
               {game.matchOver
-                ? <><button className="bu-btn" onClick={() => startMatch(game.rules)}>Altra partita</button><button className="bu-btn bu-alt" onClick={() => { setDraft(game.rules); setRulesMode('edit') }}>Cambia regole</button></>
-                : <button className="bu-btn" onClick={() => act({ type: 'nextRound' })}>Prossima mano</button>}
+                ? online ? <button className="bu-btn" onClick={onRematch}>Rivincita</button> : <><button className="bu-btn" onClick={() => startMatch(game.rules)}>Altra partita</button><button className="bu-btn bu-alt" onClick={() => { setDraft(game.rules); setRulesMode('edit') }}>Cambia regole</button></>
+                : (!online || me === 0) ? <button className="bu-btn" onClick={() => act({ type: 'nextRound' })}>Prossima mano</button> : <p>Attendi che {NAMES[0]} avvii la prossima mano.</p>}
               <button className="bu-btn bu-alt" onClick={() => setEndHidden(true)}>Vedi il tavolo</button>
               <button className="bu-btn bu-alt" onClick={onBack}>Esci</button>
             </div>

@@ -22,6 +22,14 @@ import { addResult, emptyGameStat, type GameStat } from './lib/statistics.ts'
 import { catalog, families, type CatalogGame } from './lib/game-catalog.ts'
 import { buildDeck as buildBriscolaDeck, newGame as newBriscolaGame, shuffle as shuffleBriscola } from './games/briscola/engine.ts'
 import type { GameState as BriscolaState } from './games/briscola/engine.ts'
+import { DEFAULT_RULES as UNO_RULES, buildDeck as buildUnoDeck, newGame as newUnoGame, shuffle as shuffleUno } from './games/uno/engine.ts'
+import type { GameState as UnoState } from './games/uno/engine.ts'
+import { DEFAULT_RULES as BURRACO_RULES, buildDeck as buildBurracoDeck, newGame as newBurracoGame, shuffle as shuffleBurraco } from './games/burraco/engine.ts'
+import type { GameState as BurracoState } from './games/burraco/engine.ts'
+import { buildDeck as buildMachiavelliDeck, newGame as newMachiavelliGame, shuffle as shuffleMachiavelli } from './games/machiavelli/engine.ts'
+import type { GameState as MachiavelliState } from './games/machiavelli/engine.ts'
+import { newGame as newDadiGame } from './games/dadi/engine.ts'
+import type { GameState as DadiState } from './games/dadi/engine.ts'
 
 const games = [
   { id: 'briscola', name: 'Briscola', meta: '2–4 giocatori', className: 'coral' },
@@ -35,6 +43,16 @@ type Game = typeof games[number]
 type GameId = Game['id']
 type Stats = { games: Partial<Record<GameId, GameStat>>; tournaments: number; tournamentWins: number }
 type Tournament = { bestOf: BestOf; games: GameId[]; mode: 'random' | 'ordered'; round: number; current: GameId; wins: [number, number]; result: boolean }
+type OnlineState = BriscolaState | UnoState | BurracoState | MachiavelliState | DadiState
+// Stato iniziale di una partita online. `rules` (UNO e Burraco) permette alla rivincita di tenere le regole in uso.
+function makeOnlineState(id: GameId, names: [string, string], rules?: unknown): OnlineState {
+  const first = (Math.random() < 0.5 ? 0 : 1) as 0 | 1
+  if (id === 'briscola') return newBriscolaGame({ names, first }, shuffleBriscola(buildBriscolaDeck()))
+  if (id === 'uno') return newUnoGame({ names, rules: (rules as typeof UNO_RULES) ?? UNO_RULES, first }, shuffleUno(buildUnoDeck()))
+  if (id === 'burraco') return newBurracoGame({ names, rules: (rules as typeof BURRACO_RULES) ?? BURRACO_RULES, first }, shuffleBurraco(buildBurracoDeck()))
+  if (id === 'machiavelli') return newMachiavelliGame({ names, first }, shuffleMachiavelli(buildMachiavelliDeck(true)))
+  return newDadiGame({ names, first })
+}
 const defaultRecents = games.map(({ id }) => id)
 const competitiveGames = games.filter((game) => game.id !== 'dadi')
 
@@ -265,7 +283,7 @@ function PartnerModal({ user, pair, pairLoading, invite, onClose, onLogin, onCre
   user: User | null
   pair: PairSnapshot | null
   pairLoading: boolean
-  invite: InviteSnapshot<BriscolaState> | null
+  invite: InviteSnapshot<OnlineState> | null
   onClose: () => void
   onLogin: () => void
   onCreatePair: () => Promise<void>
@@ -324,7 +342,7 @@ function PartnerModal({ user, pair, pairLoading, invite, onClose, onLogin, onCre
   </div>
 }
 
-function App() {
+function AppBody({ onError }: { onError: (message: string) => void }) {
   const [recentIds, setRecentIds] = useState(loadRecents)
   const [selectedGame, setSelectedGame] = useState<Game>(() => games.find((game) => game.id === loadRecents()[0]) ?? games[0])
   const [openGame, setOpenGame] = useState<Game['id'] | null>(null)
@@ -340,7 +358,7 @@ function App() {
   const [pairId, setPairId] = useState<string | null>(null)
   const [pair, setPair] = useState<PairSnapshot | null>(null)
   const [pairLoading, setPairLoading] = useState(true)
-  const [invite, setInvite] = useState<InviteSnapshot<BriscolaState> | null>(null)
+  const [invite, setInvite] = useState<InviteSnapshot<OnlineState> | null>(null)
   const [partnerOpen, setPartnerOpen] = useState(() => new URLSearchParams(location.search).has('pair'))
   const partner = user && pair ? partnerOf(pair, user.uid) : null
 
@@ -394,11 +412,12 @@ function App() {
 
   useEffect(() => {
     if (!pairId) return
-    return subscribeInvite<BriscolaState>(pairId, (next) => {
+    return subscribeInvite<OnlineState>(pairId, (next) => {
       setInvite(next)
-      if (next?.status === 'accepted' && next.game === 'briscola') setOpenGame('briscola')
-    }, (error) => console.error('Invito:', error))
-  }, [pairId])
+      if (next?.status === 'accepted' && games.some((game) => game.id === next.game)) setOpenGame(next.game as GameId)
+      if (next?.status === 'closed') setOpenGame(null)
+    }, (error) => { console.error('Invito:', error); onError(`Invito non leggibile: ${error.message}`) })
+  }, [pairId, onError])
 
   async function toggleAuth() {
     setAuthBusy(true)
@@ -446,15 +465,29 @@ function App() {
     const next = [game.id, ...recentIds.filter((id) => id !== game.id)]
     localStorage.setItem('recent-games', JSON.stringify(next))
     setRecentIds(next)
-    if (game.id !== 'briscola') { countStarted(game.id); setOpenGame(game.id); return }
     if (!user || !pair || !partner) { setPartnerOpen(true); return }
     countStarted(game.id)
-    const state = newBriscolaGame(
-      { names: [user.displayName?.split(' ')[0] || 'Tu', partner.name.split(' ')[0],], first: Math.random() < 0.5 ? 0 : 1 },
-      shuffleBriscola(buildBriscolaDeck()),
-    )
-    await invitePartner(pair, user.uid, game.id, state)
+    const names: [string, string] = [user.displayName?.split(' ')[0] || 'Tu', partner.name.split(' ')[0]]
+    const state = makeOnlineState(game.id, names)
+    try {
+      await invitePartner(pair, user.uid, game.id, state)
+    } catch (error) {
+      console.error('Invio invito:', error)
+      onError(`Invito non inviato: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+      return
+    }
     setPartnerOpen(true)
+  }
+
+  // Rivincita: stesso gioco e stesse regole, mazzo nuovo e primo giocatore a caso. Può premerla chiunque dei due.
+  function rematch() {
+    if (!pairId || !invite) return
+    const old = invite.state as OnlineState & { rules?: never }
+    const state = makeOnlineState(invite.game as GameId, [old.names[0], old.names[1]], 'rules' in old ? old.rules : undefined)
+    updateInviteState(pairId, state).catch((error: unknown) => {
+      console.error('Rivincita:', error)
+      onError(`Rivincita non avviata: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    })
   }
 
   function createTournament(bestOf: BestOf, selected: GameId[], mode: Tournament['mode']) {
@@ -491,21 +524,32 @@ function App() {
   }
 
   async function leaveOnlineGame() {
-    if (pairId && invite?.status === 'accepted') await closeInvite(pairId)
+    try {
+      if (pairId && invite?.status === 'accepted') await closeInvite(pairId)
+    } catch (error) {
+      console.error('Chiusura partita:', error)
+      onError(`Partita non chiusa: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    }
     setOpenGame(null)
   }
 
-  if (openGame === 'dadi') return <main><DadiTable onBack={leaveGame} /></main>
-  if (openGame === 'briscola' && !tournament && user && pairId && invite?.status === 'accepted') return <main><BriscolaTable
-    onBack={() => void leaveOnlineGame()}
-    onResult={(result) => recordResult('briscola', user.uid === invite.host_id ? result : { winner: result.winner === null ? null : 1 - result.winner, scores: result.scores && [result.scores[1], result.scores[0]] })}
-    deck={deckPreference}
-    online={{ userId: user.uid, hostId: invite.host_id, state: invite.state, onState: (state) => void updateInviteState(pairId, state) }}
-  /></main>
-  if (openGame === 'briscola') return <main><BriscolaTable onBack={leaveGame} onResult={(winner) => recordResult('briscola', winner)} deck={deckPreference} /></main>
-  if (openGame === 'uno') return <main><UnoTable onBack={leaveGame} onResult={(winner) => recordResult('uno', winner)} /></main>
-  if (openGame === 'burraco') return <main><BurracoTable onBack={leaveGame} onResult={(winner) => recordResult('burraco', winner)} /></main>
-  if (openGame === 'machiavelli') return <main><MachiavelliTable onBack={leaveGame} onResult={(winner) => recordResult('machiavelli', winner)} /></main>
+  const online = !tournament && user && pairId && invite?.status === 'accepted' && invite.game === openGame
+    ? { userId: user.uid, hostId: invite.host_id, state: invite.state, onState: (state: OnlineState) => void updateInviteState(pairId, state).catch((error: unknown) => { console.error('Mossa non salvata:', error); onError(`Mossa non salvata: ${error instanceof Error ? error.message : 'errore sconosciuto'}`) }) }
+    : null
+  const resultForMe = (result: GameResult): GameResult => !online || online.userId === online.hostId || result.winner === null
+    ? result
+    : { winner: 1 - result.winner, scores: result.scores && [result.scores[1], result.scores[0]] }
+
+  if (openGame === 'dadi') return <main><DadiTable onBack={online ? () => void leaveOnlineGame() : leaveGame} onResult={(result) => recordResult('dadi', resultForMe(result))}
+    online={online ? { ...online, state: online.state as DadiState } : undefined} onRematch={rematch} /></main>
+  if (openGame === 'briscola') return <main><BriscolaTable onBack={online ? () => void leaveOnlineGame() : leaveGame} onResult={(result) => recordResult('briscola', resultForMe(result))} deck={deckPreference}
+    online={online ? { ...online, state: online.state as BriscolaState } : undefined} /></main>
+  if (openGame === 'uno') return <main><UnoTable onBack={online ? () => void leaveOnlineGame() : leaveGame} onResult={(result) => recordResult('uno', resultForMe(result))}
+    online={online ? { ...online, state: online.state as UnoState } : undefined} onRematch={rematch} /></main>
+  if (openGame === 'burraco') return <main><BurracoTable onBack={online ? () => void leaveOnlineGame() : leaveGame} onResult={(result) => recordResult('burraco', resultForMe(result))}
+    online={online ? { ...online, state: online.state as BurracoState } : undefined} onRematch={rematch} /></main>
+  if (openGame === 'machiavelli') return <main><MachiavelliTable onBack={online ? () => void leaveOnlineGame() : leaveGame} onResult={(result) => recordResult('machiavelli', resultForMe(result))}
+    online={online ? { ...online, state: online.state as MachiavelliState } : undefined} onRematch={rematch} /></main>
   if (tournament) return <main><TournamentPanel tournament={tournament} onPlay={playTournamentRound} onStop={() => setTournament(null)} /></main>
 
   const incoming = Boolean(user && invite?.status === 'pending' && invite.guest_id === user.uid)
@@ -539,6 +583,15 @@ function App() {
       onAcceptInvite={() => pairId ? acceptInvite(pairId) : Promise.resolve()}
     />}
   </main>
+}
+
+// Errori di rete/scrittura dell'online: mai silenziosi, un avviso rosso in alto su ogni schermata.
+function App() {
+  const [onlineError, setOnlineError] = useState('')
+  return <>
+    <AppBody onError={setOnlineError} />
+    {onlineError && <p className="online-error" role="alert">{onlineError}<button onClick={() => setOnlineError('')}>Chiudi</button></p>}
+  </>
 }
 
 export default App
