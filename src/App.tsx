@@ -4,6 +4,7 @@ import DadiTable from './games/dadi/DadiTable'
 import MachiavelliTable from './games/machiavelli/MachiavelliTable'
 import BriscolaTable from './games/briscola/BriscolaTable'
 import UnoTable from './games/uno/UnoTable'
+import BurracoTable from './games/burraco/BurracoTable'
 import denari7 from './assets/cards/napoletane/denari-07.jpg'
 import bastoni3 from './assets/cards/napoletane/bastoni-03.jpg'
 import coppe1 from './assets/cards/napoletane/coppe-01.jpg'
@@ -14,6 +15,7 @@ const games = [
   { id: 'briscola', name: 'Briscola', meta: '2–4 giocatori', className: 'coral' },
   { id: 'machiavelli', name: 'Machiavelli', meta: '2–6 giocatori', className: 'lime' },
   { id: 'uno', name: 'UNO', meta: '2–10 giocatori', className: 'violet' },
+  { id: 'burraco', name: 'Burraco', meta: '2 giocatori', className: 'lime' },
   { id: 'dadi', name: 'Dadi', meta: '2–6 giocatori', className: 'coral' },
 ] as const
 
@@ -116,9 +118,9 @@ function GameArt({ game }: { game: Game }) {
   )
 
   // Carte francesi: simboli dello sprite svg-cards (public/cards/french), una <use> per carta
-  if (game.id === 'machiavelli') return (
-    <div className="game-symbol machiavelli" aria-hidden="true">
-      {['heart_7', 'club_8', 'diamond_9'].map((id) => (
+  if (game.id === 'machiavelli' || game.id === 'burraco') return (
+    <div className={`game-symbol ${game.id}`} aria-hidden="true">
+      {(game.id === 'burraco' ? ['club_9', 'heart_10', 'joker_red'] : ['heart_7', 'club_8', 'diamond_9']).map((id) => (
         <svg key={id} className="card real" viewBox="0 0 169.075 244.64"><use href={`/cards/french/svg-cards.svg#${id}`} /></svg>
       ))}
     </div>
@@ -226,12 +228,13 @@ function App() {
     localStorage.setItem('recent-games', JSON.stringify(next))
     setRecentIds(next)
     // per ora si aprono solo i tavoli di dadi, Briscola, UNO e Machiavelli; gli altri giochi non hanno ancora una schermata
-    if (game.id === 'dadi' || game.id === 'machiavelli' || game.id === 'briscola' || game.id === 'uno') setOpenGame(game.id)
+    if (game.id === 'dadi' || game.id === 'machiavelli' || game.id === 'briscola' || game.id === 'uno' || game.id === 'burraco') setOpenGame(game.id)
   }
 
   if (openGame === 'dadi') return <main><DadiTable onBack={() => setOpenGame(null)} /></main>
   if (openGame === 'briscola') return <main><BriscolaTable onBack={() => setOpenGame(null)} /></main>
   if (openGame === 'uno') return <main><UnoTable onBack={() => setOpenGame(null)} /></main>
+  if (openGame === 'burraco') return <main><BurracoTable onBack={() => setOpenGame(null)} /></main>
   if (openGame === 'machiavelli') return <main><MachiavelliTable onBack={() => setOpenGame(null)} /></main>
 
   return <main><Picker concept={concept} onChange={setConcept} />{concept === 1 && <Product recentGames={recentGames} onPlay={play} />}{concept === 2 && <Night />}{concept === 3 && <Library />}</main>
