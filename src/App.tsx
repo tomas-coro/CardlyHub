@@ -126,7 +126,7 @@ function CasinoHome({ onPlay, onPlayLocal, onRules, onTournament, onStats, onPro
 
   return <div className="casino-rim"><section className="casino-felt">
     <header className="casino-bar">
-      <a className="casino-logo" href="/" aria-label="CardlyHub, pagina iniziale">CardlyHub</a>
+      <a className="casino-logo" href={import.meta.env.BASE_URL} aria-label="CardlyHub, pagina iniziale">CardlyHub</a>
       <nav aria-label="Account">
         <button className="casino-line" onClick={onStats}>Statistiche</button>
         <button className="casino-line casino-pair" onClick={onPartner}>{partnerName ? `Con ${partnerName}` : 'Abbina account'}</button>
