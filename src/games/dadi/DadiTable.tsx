@@ -9,10 +9,7 @@ import { diceTransition } from './transition.ts'
 // Il lancio è animato a mano (requestAnimationFrame) per controllare rimbalzi, rotazione e velocità.
 
 const N = 5
-const FACES = [1, 2, 3, 4, 5, 6]
 const PIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-// rotazione del cubo (X, Y in gradi) che porta la faccia N davanti allo spettatore
-const ROT: Record<number, [number, number]> = { 1: [0, 0], 6: [0, 180], 3: [0, -90], 4: [0, 90], 2: [-90, 0], 5: [90, 0] }
 
 const rr = (a: number, b: number) => a + Math.random() * (b - a)
 const rnd = () => 1 + Math.floor(Math.random() * 6)
@@ -65,10 +62,10 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
 
   // dado fermo: posa finale con la sua piccola imperfezione di posizione e rotazione
   const rest = (i: number) => {
-    const [x, y] = ROT[valsRef.current[i]]
     const { jx, jy, yaw } = pose.current
+    slotEl.current[i]!.dataset.v = String(valsRef.current[i])
     bodyEl.current[i]!.style.transform = `translate(${jx[i]}px,${jy[i]}px)`
-    cubeEl.current[i]!.style.transform = `rotateZ(${yaw[i]}deg) rotateX(${x}deg) rotateY(${y}deg)`
+    cubeEl.current[i]!.style.transform = `rotateZ(${yaw[i]}deg)`
     Object.assign(shadowEl.current[i]!.style, { transform: `translate(${jx[i] + 2}px,${jy[i] + 3}px)`, opacity: '.4', filter: 'blur(4px)' })
     slotEl.current[i]!.style.zIndex = ''
   }
@@ -106,7 +103,6 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
   // prepara un tiro: quattro archi di rimbalzo decrescenti; avanzamento e rotazione seguono gli archi
   const makeThrow = (i: number, v: number, order: number): Throw => {
     valsRef.current[i] = v
-    const [fx, fy] = ROT[v]
     const fyaw = rr(-14, 14)
     const dr = diceBox.current!.getBoundingClientRect()
     const sr = slotEl.current[i]!.getBoundingClientRect()
@@ -127,7 +123,7 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
       sx: dr.left + dr.width / 2 - (sr.left + sr.width / 2) + rr(-40, 40),
       sy: fr.bottom - (sr.top + sr.height / 2) - 8 + rr(0, 16),
       A0: { x: rr(-180, 180), y: rr(-180, 180), z: rr(-90, 90) },
-      E: { x: fx + 360 * Math.round(rr(2, 4)) * sgn(), y: fy + 360 * Math.round(rr(2, 4)) * sgn(), z: fyaw + 360 * Math.round(rr(0, 1)) * sgn() },
+      E: { x: 360 * Math.round(rr(2, 4)) * sgn(), y: 360 * Math.round(rr(2, 4)) * sgn(), z: fyaw + 360 * Math.round(rr(0, 1)) * sgn() },
     }
   }
 
@@ -143,8 +139,9 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
     const py = th.sy * (1 - k) + th.ty * k
     slotEl.current[i]!.style.zIndex = String(Math.round(h) + 1)
     bodyEl.current[i]!.style.transform = `translate(${px}px,${py - h * 0.55}px) scale(${0.8 + 0.2 * k + h / 230})`
-    cubeEl.current[i]!.style.transform =
-      `rotateZ(${th.A0.z * (1 - k) + th.E.z * k}deg) rotateX(${th.A0.x * (1 - k) + th.E.x * k}deg) rotateY(${th.A0.y * (1 - k) + th.E.y * k}deg)`
+    // Dado piatto: ruota sul piano e basta, mai schiacciato (le facce scorrono mentre vola).
+    cubeEl.current[i]!.style.transform = `rotateZ(${th.A0.z * (1 - k) + th.E.z * k}deg)`
+    slotEl.current[i]!.dataset.v = String(u < 0.82 ? 1 + ((Math.floor(th.tv / 85) * 7 + i * 3) % 6) : th.tv >= 0 ? valsRef.current[i] : slotEl.current[i]!.dataset.v)
     Object.assign(shadowEl.current[i]!.style, {
       transform: `translate(${px + h * 0.28 + 2}px,${py + h * 0.16 + 3}px) scale(${1 - h / 420})`,
       opacity: String(Math.max(0.12, 0.42 - h / 330)),
@@ -237,19 +234,39 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
   // Schede punti: sinistra sempre "mia" (online) o di Tomas (stesso schermo), destra dell'altro, come un tavolo vero.
   // Si può scegliere una categoria solo sulla scheda di chi ha il turno.
   const leftIdx = online ? me : 0
+  const UPPER = CATEGORIES.slice(0, 6)
+  const LOWER = CATEGORIES.slice(6)
   const pad = (idx: number) => {
     const turnOn = game.phase === 'playing' && game.turn === idx
     const canPick = turnOn && (!online || idx === me) && !busy && left < 3
+    const sc = game.scores[idx]
+    const upper = UPPER.reduce((sum, c) => sum + (sc[c] ?? 0), 0)
+    const bonus = upper >= 63
+    const row = (category: Category) => {
+      const value = sc[category]
+      const open = value === undefined
+      const pick = open && canPick
+      const pts = pick ? score(category, game.dice) : 0
+      return (
+        <button key={category} className={`${pick ? 'pick' : ''}${pick && pts === 0 ? ' zero' : ''}${open ? '' : ' done'}`}
+          disabled={!pick} onClick={() => choose(category)}>
+          <span>{LABEL[category]}</span>
+          <em>{open ? (pick ? (pts > 0 ? `+${pts}` : '0') : '') : value}</em>
+        </button>
+      )
+    }
     return (
       <div className={`dadi-pad${turnOn ? ' on' : ''}`} aria-label={`Scheda di ${game.names[idx]}`}>
-        <h3><span>{game.names[idx]}</span><b>{total(game.scores[idx])}</b></h3>
-        {CATEGORIES.map((category) => {
-          const value = game.scores[idx][category]
-          return <button key={category} disabled={!canPick || value !== undefined} onClick={() => choose(category)}>
-            <span>{LABEL[category]}</span>
-            <em className={value === undefined && canPick ? 'preview' : ''}>{value ?? (canPick ? score(category, game.dice) : '·')}</em>
-          </button>
-        })}
+        <h3><span>{game.names[idx]}</span><b>{total(sc)}</b></h3>
+        <div className="sec">Numeri</div>
+        {UPPER.map(row)}
+        <div className={`bonus${bonus ? ' got' : ''}`} title="63 punti nei numeri valgono 35 di bonus">
+          <span>Bonus 35</span>
+          <div className="bar"><i style={{ width: `${Math.min(100, (upper / 63) * 100)}%` }} /></div>
+          <em>{bonus ? '+35' : `${upper}/63`}</em>
+        </div>
+        <div className="sec">Combinazioni</div>
+        {LOWER.map(row)}
       </div>
     )
   }
@@ -275,8 +292,7 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
                     <div className="shadow" ref={(el) => { shadowEl.current[i] = el }} />
                     <div className="body" ref={(el) => { bodyEl.current[i] = el }}>
                       <div className="cube" ref={(el) => { cubeEl.current[i] = el }}>
-                        {FACES.map((n) => <div key={`c${n}`} className={`c k${n}`} />)}
-                        {FACES.map((n) => <div key={`f${n}`} className={`f f${n}`}>{PIPS.map((p) => <i key={p} className={`pip p${p}`} />)}</div>)}
+                        <div className="f">{PIPS.map((p) => <i key={p} className={`pip p${p}`} />)}</div>
                       </div>
                     </div>
                     <button className="die-btn" type="button" aria-pressed={held[i]}
