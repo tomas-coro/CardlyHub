@@ -23,6 +23,7 @@ const MODES: [Rules['mode'], string, string][] = [
   ['pts', '500 punti', 'Regola ufficiale: ogni mano dà punti, vince chi arriva a 500.'],
 ]
 const SWITCHES: [Exclude<keyof Rules, 'mode'>, string, string][] = [
+  ['challenge', 'Sfida del +4', 'Chi riceve un +4 può sfidare: se chi l\'ha giocato aveva il colore di prima pesca 4 lui, altrimenti pesca 6 lo sfidante.'],
   ['s22', '+2 su +2', 'Se ti arriva un +2 puoi rispondere con un altro +2: la pesca si somma.'],
   ['s44', '+4 su +4, e +2 su +4', 'Il +4 si impila sul +4. Un +2 si impila su un +4 se è del colore scelto.'],
   ['multi', 'Più carte uguali insieme', 'Giochi due o tre carte con lo stesso numero (o stesso simbolo) in un colpo.'],

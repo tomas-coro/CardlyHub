@@ -222,7 +222,7 @@ test('s44: +4 su +4 e +2 su +4 solo del colore scelto', () => {
   assert.equal(n.phase, 'play')  // impilata: nessuna sfida
   assert.equal(n.pending, 0)
   assert.equal(n.hands[1].length, 11)  // 3 + 8
-  assert.equal(n.turn, 0)
+  assert.equal(n.turn, 1)              // dopo un +4 gioca chi ha pescato
   assert.equal(topCard(n).chosen, 'y')
 })
 
@@ -253,7 +253,7 @@ test('Jolly: il turno resta a chi lo gioca finché non sceglie il colore', () =>
 })
 
 test('+4 con colore in mano: sfida riuscita, il colpevole pesca 4 e chi ha sfidato gioca', () => {
-  let n = color(play(scenario({ h0: ['w4', 'r9', 'b2'], h1: ['y1', 'y2', 'y3'] }), 0), 'b')
+  let n = color(play(scenario({ h0: ['w4', 'r9', 'b2'], h1: ['y1', 'y2', 'y3'], rules: { challenge: true } }), 0), 'b')
   assert.equal(n.phase, 'challenge')
   assert.equal(n.turn, 1)
   assert.equal(n.pending, 4)
@@ -267,7 +267,7 @@ test('+4 con colore in mano: sfida riuscita, il colpevole pesca 4 e chi ha sfida
 })
 
 test('+4 senza il colore in mano: sfida persa, lo sfidante pesca 6 e perde il turno', () => {
-  let n = color(play(scenario({ h0: ['w4', 'b1', 'b2'], h1: ['y1', 'y2', 'y3'] }), 0), 'b')
+  let n = color(play(scenario({ h0: ['w4', 'b1', 'b2'], h1: ['y1', 'y2', 'y3'], rules: { challenge: true } }), 0), 'b')
   n = run(n, { type: 'challenge' })
   assert.equal(n.hands[1].length, 9)   // 3 + 6
   assert.equal(n.hands[0].length, 2)
@@ -275,16 +275,30 @@ test('+4 senza il colore in mano: sfida persa, lo sfidante pesca 6 e perde il tu
   assert.deepEqual(n.events[0], { type: 'challenge', by: 1, won: false })
 })
 
-test('+4 accettato: si pescano 4 e si salta il turno', () => {
-  const n = run(color(play(scenario({ h0: ['w4', 'b1', 'b2'], h1: ['y1', 'y2', 'y3'] }), 0), 'b'), { type: 'accept' })
-  assert.equal(n.hands[1].length, 7)
+test('+4 senza sfida (regola di base): chi lo riceve pesca 4 subito e poi gioca lui', () => {
+  const n = color(play(scenario({ h0: ['w4', 'b1', 'b2'], h1: ['y1', 'y2', 'y3'] }), 0), 'b')
+  assert.equal(n.phase, 'play')
+  assert.equal(n.hands[1].length, 7)   // 3 + 4, nessuna fase di sfida
+  assert.equal(n.pending, 0)
+  assert.equal(n.turn, 1)
+})
+
+test('+2 subito: chi pesca salta il turno come nel UNO ufficiale', () => {
+  const n = play(scenario({ h0: ['rd2', 'b1'], h1: ['y1', 'y2', 'y3'] }), 0)
+  assert.equal(n.hands[1].length, 5)
   assert.equal(n.turn, 0)
+})
+
+test('+4 accettato: si pescano 4 e poi gioca chi ha pescato', () => {
+  const n = run(color(play(scenario({ h0: ['w4', 'b1', 'b2'], h1: ['y1', 'y2', 'y3'], rules: { challenge: true } }), 0), 'b'), { type: 'accept' })
+  assert.equal(n.hands[1].length, 7)
+  assert.equal(n.turn, 1)
   assert.equal(n.pending, 0)
 })
 
 test('la penalità UNO non cambia il verdetto della sfida (il colore si guarda prima di pescare)', () => {
   // dopo il +4 resta solo b1: UNO dimenticato -> pesca 2 (r9 e r8), ma `had` era già deciso
-  const s = scenario({ h0: ['w4', 'b1'], h1: ['y1', 'y2', 'y3'], deck: ['y1', 'y1', 'y1', 'y1', 'y1', 'y1', 'r9', 'r8'] })
+  const s = scenario({ h0: ['w4', 'b1'], h1: ['y1', 'y2', 'y3'], deck: ['y1', 'y1', 'y1', 'y1', 'y1', 'y1', 'r9', 'r8'], rules: { challenge: true } })
   let n = color(play(s, 0), 'b')
   assert.equal(n.hands[0].length, 3)
   n = run(n, { type: 'challenge' })
@@ -292,17 +306,17 @@ test('la penalità UNO non cambia il verdetto della sfida (il colore si guarda p
 })
 
 test('con s44 e un +4 in mano, "accept" pesca comunque (non resta in gioco con la pesca in sospeso)', () => {
-  const s = scenario({ h0: ['w4', 'r9', 'b2'], h1: ['w4', 'y1', 'y2'], rules: { s44: true } })
+  const s = scenario({ h0: ['w4', 'r9', 'b2'], h1: ['w4', 'y1', 'y2'], rules: { s44: true, challenge: true } })
   const ch = color(play(s, 0), 'b')
   assert.ok(canStack(ch, 1))
   const n = run(ch, { type: 'accept' })
   assert.equal(n.hands[1].length, 7)
   assert.equal(n.pending, 0)
-  assert.equal(n.turn, 0)
+  assert.equal(n.turn, 1)
 })
 
 test('"stack" risponde invece di sfidare; senza carte per farlo è un errore', () => {
-  const s = scenario({ h0: ['w4', 'r9', 'b2'], h1: ['w4', 'y1', 'y2'], rules: { s44: true } })
+  const s = scenario({ h0: ['w4', 'r9', 'b2'], h1: ['w4', 'y1', 'y2'], rules: { s44: true, challenge: true } })
   let n = run(color(play(s, 0), 'b'), { type: 'stack' })
   assert.equal(n.phase, 'play')
   assert.equal(n.turn, 1)
@@ -310,7 +324,7 @@ test('"stack" risponde invece di sfidare; senza carte per farlo è un errore', (
   n = color(play(n, 0), 'g')           // +4 sopra +4: nessuna sfida
   assert.equal(n.pending, 0)
   assert.equal(n.hands[0].length, 10)  // 2 + 8
-  const noStack = color(play(scenario({ h0: ['w4', 'r9', 'b2'], h1: ['w4', 'y1', 'y2'] }), 0), 'b')  // s44 spento
+  const noStack = color(play(scenario({ h0: ['w4', 'r9', 'b2'], h1: ['w4', 'y1', 'y2'], rules: { challenge: true } }), 0), 'b')  // s44 spento
   assert.match(fail(noStack, { type: 'stack' }), /nessuna carta/)
 })
 

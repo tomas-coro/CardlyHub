@@ -12,6 +12,7 @@ export type Mode = 'single' | 'bo3' | 'bo5' | 'pts'
 // Regole della casa: tutte spente = UNO ufficiale. Fisse per tutta la partita.
 export interface Rules {
   s22: boolean   // +2 su +2: la pesca si somma
+  challenge: boolean   // sfida del +4 (spenta di base: il +4 si pesca e basta)
   s44: boolean   // +4 su +4, e +2 su +4 se del colore scelto
   multi: boolean // più carte uguali (stesso numero/simbolo, mai Jolly) insieme
   swap: boolean  // 7 e 0 scambiano le mani (in due sono la stessa cosa)
@@ -79,7 +80,7 @@ export const HAND_SIZE = 7
 export const MAX_MULTI = 4
 export const MERCY_LIMIT = 25
 export const GOAL: Record<Mode, number> = { single: 1, bo3: 2, bo5: 3, pts: 500 }
-export const DEFAULT_RULES: Rules = { s22: false, s44: false, multi: false, swap: false, noSpecialEnd: false, drawUntil: false, mercy: false, mode: 'bo3' }
+export const DEFAULT_RULES: Rules = { challenge: false, s22: false, s44: false, multi: false, swap: false, noSpecialEnd: false, drawUntil: false, mercy: false, mode: 'bo3' }
 
 export const NO_SPECIAL_END = 'Non puoi chiudere con una carta speciale'
 export const isNumber = (c: Card) => /^\d$/.test(c.v)
@@ -191,15 +192,20 @@ function draw(s: GameState, p: number, n: number, why: 'stack' | 'free' | 'uno' 
   return got
 }
 
-// Dà il turno a n. Se n ha una pesca in sospeso e non può impilare, la subisce e il turno passa all'altro.
+// Dopo aver subito una pesca forzata: se veniva da un +4 il turno resta a chi ha pescato (regola della casa),
+// se veniva da un +2 si salta il turno come nel UNO ufficiale.
+const turnAfterForced = (s: GameState, n: number) => (topCard(s).v === 'w4' ? n : 1 - n)
+
+// Dà il turno a n. Se n ha una pesca in sospeso e non può impilare, la subisce.
 function advance(s: GameState, n: number, shuf: Shuffle) {
   s.turn = n
   s.drawn = null
   if (s.phase === 'play' && s.pending > 0 && !canStack(s, n)) {
     const k = s.pending
     s.pending = 0
+    const next = turnAfterForced(s, n)
     draw(s, n, k, 'stack', shuf)
-    s.turn = 1 - n
+    s.turn = next
   }
 }
 
@@ -304,7 +310,7 @@ function step(prev: GameState, a: Action, shuf: Shuffle): Result {
     if (w.v === 'w4') {
       s.pending += 4
       // un +4 sopra una pesca già in corso è un'impilata: non si sfida
-      if (w.wasPending === 0) s.phase = 'challenge'
+      if (w.wasPending === 0 && s.rules.challenge) s.phase = 'challenge'
       else { s.phase = 'play'; s.wild = null }
     } else { s.phase = 'play'; s.wild = null }
     advance(s, 1 - w.by, shuf)  // in 'challenge' advance non fa pescare: decide chi risponde
@@ -321,8 +327,9 @@ function step(prev: GameState, a: Action, shuf: Shuffle): Result {
     if (a.type === 'accept') {
       const k = s.pending
       s.pending = 0
+      const next = turnAfterForced(s, n)
       draw(s, n, k, 'stack', shuf)
-      advance(s, 1 - n, shuf)
+      advance(s, next, shuf)
       return { state: s }
     }
     s.pending = 0
@@ -339,8 +346,9 @@ function step(prev: GameState, a: Action, shuf: Shuffle): Result {
     if (s.pending > 0) {
       const k = s.pending
       s.pending = 0
+      const next = turnAfterForced(s, p)
       draw(s, p, k, 'stack', shuf)
-      advance(s, 1 - p, shuf)
+      advance(s, next, shuf)
       return { state: s }
     }
     const got = s.rules.drawUntil ? draw(s, p, Infinity, 'free', shuf, (c) => baseLegal(s, c)) : draw(s, p, 1, 'free', shuf)
