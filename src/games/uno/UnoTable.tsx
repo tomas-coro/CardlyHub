@@ -9,6 +9,7 @@ import { unoTransition } from './transition.ts'
 import { COL, COLOR_NAME, cardLabel } from './colors.ts'
 import { UnoFace } from './UnoFace.tsx'
 import backUrl from '../../assets/cards/backs/uno-back.svg'
+import { flyIn, useFlipList } from '../../lib/motion.ts'
 
 // Tavolo di UNO (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri", nessun bot).
 // Le regole vivono tutte in engine.ts (anche i controlli "si può giocare?"): qui c'è solo interfaccia e animazioni.
@@ -163,6 +164,8 @@ export default function UnoTable({ onBack, onResult, online, onRematch }: { onBa
     window.addEventListener('resize', fitHand)
     return () => window.removeEventListener('resize', fitHand)
   })
+  // ordina, riordino a mano, carta pescata: le carte scivolano al nuovo posto (non durante il trascinamento, che ha il suo movimento)
+  useFlipList(handEl, '.uk-cd', 'data-id', !dragOrder && !drag)
 
   // Mossa dell'avversario: si riproduce sul nostro schermo ciò che il suo dispositivo ha già animato
   // (carta che atterra, carte pescate, messaggio, scritta UNO). Va PRIMA dell'effetto che legge `drawn`.
@@ -195,11 +198,7 @@ export default function UnoTable({ onBack, onResult, online, onRematch }: { onBa
     list.forEach(([p, n]) => {
       const els = [...root.current!.querySelectorAll<HTMLElement>(p === me ? '[data-hand] .uk-cd' : '[data-oh] .uk-cd')].slice(-Math.min(n, 6))
       els.forEach((el, k) => {
-        const r = el.getBoundingClientRect()
-        el.animate(
-          [{ transform: `translate(${from.left + from.width / 2 - r.left - r.width / 2}px,${from.top + from.height / 2 - r.top - r.height / 2}px) scale(.8)`, opacity: 0.3 }, { transform: 'none', opacity: 1 }],
-          { duration: 460, delay: k * 110, easing: 'ease-out', fill: 'backwards' },
-        )
+        flyIn(el, from, { delay: k * 130, duration: 640, lift: 28 })
       })
     })
   }, [game, cover, rulesOpen, me])

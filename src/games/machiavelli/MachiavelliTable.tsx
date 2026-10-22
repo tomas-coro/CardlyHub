@@ -4,6 +4,7 @@ import { apply, buildDeck, describe, newGame, playedCount, shuffle } from './eng
 import type { Action, Card, GameState } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
 import { isRemoteChange, playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { useFlipList } from '../../lib/motion.ts'
 
 // Tavolo di Machiavelli (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri").
 // Le regole vivono tutte in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, animazioni.
@@ -162,6 +163,8 @@ export default function MachiavelliTable({ onBack, onResult, online, onRematch }
   })
 
   const hand = useMemo(() => (game ? sortHand(game.hands[me], sort, order) : []), [game, me, sort, order])
+  // ordina per seme/valore, riordino a mano, carta pescata: le carte della mano scivolano al nuovo posto
+  useFlipList(handRef, '.pc', 'data-card', !drag)
   // sempre l'ultima versione, per i listener della finestra (che non si ricreano a ogni render)
   const latest = useRef({ game, sel, hand, busy })
   useEffect(() => { latest.current = { game, sel, hand, busy } })

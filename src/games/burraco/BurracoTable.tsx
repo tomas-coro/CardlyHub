@@ -5,6 +5,7 @@ import type { Action, BurracoEvent, Card, End, GameState, Meld, Rules } from './
 import type { GameResult } from '../../lib/game-result.ts'
 import { isRemoteChange, playerIndex, type OnlineGame } from '../../lib/online-game.ts'
 import { burracoMove } from './transition.ts'
+import { flyIn, useFlipList } from '../../lib/motion.ts'
 
 // Tavolo di Burraco (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri", nessun bot).
 // Le regole e i punti vivono tutti in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, pannelli.
@@ -221,19 +222,14 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
       fresh.forEach((c, i) => {
         const node = el.querySelector<HTMLElement>(`.bu-hand .bu-pc[data-id="${c.id}"]`)
         const from = cardRects.current.get(c.id) ?? deck
-        if (!node || !from) return
-        const r = node.getBoundingClientRect()
-        const dx = from.left + from.width / 2 - (r.left + r.width / 2), dy = from.top + from.height / 2 - (r.top + r.height / 2)
-        node.animate([
-          { translate: `${dx}px ${dy}px`, scale: String(from.width / r.width), rotate: '-8deg', zIndex: 30 },
-          { translate: `${dx * 0.35}px ${dy * 0.35 - 36}px`, scale: '1.12', rotate: '3deg', zIndex: 30, offset: 0.55 },
-          { translate: '0 0', scale: '1', rotate: '0deg', zIndex: 30 },
-        ], { duration: 620, delay: Math.min(i * 55, 440), easing: 'cubic-bezier(.25,.8,.3,1)', fill: 'backwards' })
+        if (node && from) flyIn(node, from, { delay: Math.min(i * 70, 560), duration: 720 })
       })
     }
     prevGame.current = game
     cardRects.current = now
   })
+  // ordina per seme/valore, riordino a mano, carta pescata: le carte della mano scivolano al nuovo posto
+  useFlipList(handEl, '.bu-pc', 'data-id')
 
   // I messaggi spariscono dopo un po', ma solo quando nessuna schermata copre il tavolo.
   useEffect(() => {

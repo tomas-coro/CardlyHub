@@ -7,6 +7,7 @@ import { isRemoteChange } from '../../lib/online-game.ts'
 import { briscolaTransition } from './transition.ts'
 import napoletaneBack from '../../assets/cards/backs/napoletane-back.svg'
 import trevigianeBack from '../../assets/cards/backs/trevigiane-back.svg'
+import { flyIn } from '../../lib/motion.ts'
 
 // Tavolo di Briscola (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri").
 // Le regole vivono tutte in engine.ts; qui c'è solo interfaccia e animazioni.
@@ -158,11 +159,7 @@ export default function BriscolaTable({ onBack, onResult, deck, online }: { onBa
     list.forEach((p, k) => {
       const el = p === me ? hand.at(-1) : opp.at(-1)
       if (!el) return
-      const r = el.getBoundingClientRect()
-      el.animate(
-        [{ transform: `translate(${from.left + from.width * 0.2 - r.left}px,${from.top + from.height / 2 - r.top - r.height / 2}px) scale(.7)`, opacity: 0.3 }, { transform: 'none', opacity: 1 }],
-        { duration: 480, delay: k * 220, easing: 'ease-out', fill: 'backwards' },
-      )
+      flyIn(el, from, { delay: k * 260, duration: 700, lift: 34 })
     })
   }, [game, cover, me])
 
