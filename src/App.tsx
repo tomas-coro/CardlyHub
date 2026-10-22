@@ -8,11 +8,16 @@ import BriscolaTable from './games/briscola/BriscolaTable'
 import type { DeckStyle } from './games/briscola/BriscolaTable'
 import UnoTable from './games/uno/UnoTable'
 import BurracoTable from './games/burraco/BurracoTable'
-import RoomLobby from './RoomLobby'
+import { UnoFace } from './games/uno/UnoFace.tsx'
 import denari7 from './assets/cards/napoletane/denari-07.jpg'
 import bastoni3 from './assets/cards/napoletane/bastoni-03.jpg'
 import coppe1 from './assets/cards/napoletane/coppe-01.jpg'
 import { auth, db } from './lib/firebase.ts'
+import { acceptInvite, acceptPair, closeInvite, createPair, invitePartner, loadPairId, subscribeInvite, subscribePair, updateInviteState } from './lib/partner.ts'
+import type { InviteSnapshot, PairSnapshot } from './lib/partner.ts'
+import { partnerOf } from './lib/partner-domain.ts'
+import { buildDeck as buildBriscolaDeck, newGame as newBriscolaGame, shuffle as shuffleBriscola } from './games/briscola/engine.ts'
+import type { GameState as BriscolaState } from './games/briscola/engine.ts'
 
 type Concept = 1 | 2 | 3
 
@@ -59,57 +64,16 @@ function Logo() {
   return <a className="logo" href="/" aria-label="CardlyHub, pagina iniziale"><i>◆</i>CardlyHub</a>
 }
 
-function Header({ onJoin, user, authBusy, onAuth }: { onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
+function Header({ onPartner, partnerName, user, authBusy, onAuth }: { onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <header className="site-header">
       <Logo />
       <nav aria-label="Navigazione principale"><a href="#games">Giochi</a><a href="#how">Come funziona</a></nav>
       <div className="header-actions">
         <button className="auth-action" onClick={onAuth} disabled={authBusy}>{authBusy ? 'Attendi…' : user ? `Esci · ${user.displayName?.split(' ')[0] ?? 'Profilo'}` : 'Accedi con Google'}</button>
-        <button className="outline-action" onClick={onJoin}>Ho un codice</button>
+        <button className="outline-action" onClick={onPartner}>{partnerName ? `Con ${partnerName}` : 'Abbina account'}</button>
       </div>
     </header>
-  )
-}
-
-// Fronte UNO, direzione "Pop + indici grandi" (mockups/02-uno-tavolo.html, tema th-b). Geometria su viewBox 200x300.
-const unoColors = { red: '#e4261f', blue: '#1f6fd1', yellow: '#f7c600', green: '#2f9e44' } as const
-
-function UnoReverse({ x, y, size, color }: { x: number; y: number; size: number; color: string }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${size / 24})`} fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 9h13l-3.5-3.5M20 15H7l3.5 3.5" />
-    </g>
-  )
-}
-
-function UnoFace({ color, value }: { color: keyof typeof unoColors; value: string }) {
-  const fill = unoColors[color]
-  const ink = color === 'yellow' ? '#16181d' : '#fff'
-  const isReverse = value === 'rev'
-  const index = (rotate: boolean) => (
-    <g transform={rotate ? 'rotate(180 100 150)' : undefined}>
-      {isReverse
-        ? <UnoReverse x={10} y={8} size={56} color={ink} />
-        : <text x="16" y="56" fontSize="54" fontWeight="900" fill={ink} fontFamily="inherit">{value}</text>}
-    </g>
-  )
-  return (
-    <svg className="card real" viewBox="0 0 200 300">
-      <rect width="200" height="300" rx="18" fill="#fff" />
-      <clipPath id={`uno-face-${color}`}><rect x="10" y="10" width="180" height="280" rx="16" /></clipPath>
-      <g clipPath={`url(#uno-face-${color})`}>
-        <rect x="10" y="10" width="180" height="280" fill={fill} />
-        <circle cx="168" cy="268" r="62" fill="#000" fillOpacity=".16" />
-        <circle cx="163" cy="39" r="11" fill="#fff" fillOpacity=".3" />
-      </g>
-      <ellipse cx="100" cy="168" rx="92" ry="93" fill="#fff" transform="rotate(-28 100 168)" />
-      {isReverse
-        ? <UnoReverse x={42} y={112} size={116} color={fill} />
-        : <text x="100" y="205" textAnchor="middle" fontSize="120" fontWeight="900" letterSpacing="-6" fill={color === 'yellow' ? '#16181d' : fill} fontFamily="inherit">{value}</text>}
-      {index(false)}
-      {index(true)}
-    </svg>
   )
 }
 
@@ -140,9 +104,9 @@ function GameArt({ game }: { game: Game }) {
 
   return (
     <div className="game-symbol uno" aria-hidden="true">
-      <UnoFace color="red" value="5" />
-      <UnoFace color="blue" value="7" />
-      <UnoFace color="yellow" value="rev" />
+      <UnoFace className="card real" card={{ id: 1, c: 'r', v: '5' }} />
+      <UnoFace className="card real" card={{ id: 2, c: 'b', v: '7' }} />
+      <UnoFace className="card real" card={{ id: 3, c: 'y', v: 'rev' }} />
     </div>
   )
 }
@@ -157,16 +121,16 @@ function GameCard({ game, featured = false, onPlay }: { game: Game; featured?: b
   )
 }
 
-function Product({ recentGames, onPlay, onCreate, onJoin, user, authBusy, onAuth }: { recentGames: Game[]; onPlay: (game: Game) => void; onCreate: () => void; onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
+function Product({ recentGames, onPlay, onPartner, partnerName, user, authBusy, onAuth }: { recentGames: Game[]; onPlay: (game: Game) => void; onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <section className="mockup product">
-      <Header onJoin={onJoin} user={user} authBusy={authBusy} onAuth={onAuth} />
+      <Header onPartner={onPartner} partnerName={partnerName} user={user} authBusy={authBusy} onAuth={onAuth} />
       <div className="product-hero">
         <div className="hero-copy">
           <p className="status"><i /> Giochi di carte, senza distanza</p>
           <h1><span>Il tavolo</span><br />è già pronto.</h1>
-          <p className="lead">Apri una stanza, scegli il gioco e condividi il link. Gli altri entrano senza account.</p>
-          <div className="hero-actions"><button className="main-action" onClick={onCreate}>Apri un tavolo</button><button className="plain-action">Esplora i giochi</button></div>
+          <p className="lead">Abbina una volta i vostri account, scegli il gioco e invita direttamente la tua compagna.</p>
+          <div className="hero-actions"><button className="main-action" onClick={onPartner}>{partnerName ? `Gioca con ${partnerName}` : 'Abbina i vostri account'}</button><button className="plain-action">Esplora i giochi</button></div>
         </div>
         <div className="product-showcase">
           <span className="live-badge"><i /> 128 tavoli aperti</span>
@@ -181,21 +145,21 @@ function Product({ recentGames, onPlay, onCreate, onJoin, user, authBusy, onAuth
           <span className="invite-badge"><b>+3</b> amici online</span>
         </div>
       </div>
-      <footer className="trust-line"><b>Nessun download</b><span>Invita con un link</span><span>Gli ospiti entrano senza account</span></footer>
+      <footer className="trust-line"><b>Nessun download</b><span>Un solo abbinamento</span><span>Inviti diretti tra voi due</span></footer>
     </section>
   )
 }
 
-function Night({ onCreate, onJoin, user, authBusy, onAuth }: { onCreate: () => void; onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
+function Night({ onPartner, partnerName, user, authBusy, onAuth }: { onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <section className="mockup night">
-      <Header onJoin={onJoin} user={user} authBusy={authBusy} onAuth={onAuth} />
+      <Header onPartner={onPartner} partnerName={partnerName} user={user} authBusy={authBusy} onAuth={onAuth} />
       <div className="night-hero">
         <div className="night-copy">
           <p className="status"><i /> Tutti online</p>
           <h1>Stasera<br />si gioca.</h1>
           <p className="lead">Il tavolo è già pronto. Manca solo il gruppo.</p>
-          <button className="main-action" onClick={onCreate}>Crea una stanza</button>
+          <button className="main-action" onClick={onPartner}>{partnerName ? `Gioca con ${partnerName}` : 'Abbina account'}</button>
         </div>
         <div className="room" aria-label="Anteprima di una stanza di gioco">
           <div className="room-head"><div><small>Stanza di Sofia</small><b>Briscola</b></div><span>CODICE <strong>7K3M</strong></span></div>
@@ -213,10 +177,10 @@ function Night({ onCreate, onJoin, user, authBusy, onAuth }: { onCreate: () => v
   )
 }
 
-function Library({ onJoin, user, authBusy, onAuth }: { onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
+function Library({ onPartner, partnerName, user, authBusy, onAuth }: { onPartner: () => void; partnerName?: string; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <section className="mockup library">
-      <Header onJoin={onJoin} user={user} authBusy={authBusy} onAuth={onAuth} />
+      <Header onPartner={onPartner} partnerName={partnerName} user={user} authBusy={authBusy} onAuth={onAuth} />
       <div className="library-intro">
         <div><p className="status"><i /> Scegli il prossimo tavolo</p><h1>Tutti i giochi.<br />Tutta la compagnia.</h1></div>
         <div className="library-side"><p>Dai classici alle sfide veloci: apri una stanza e gioca con chi vuoi.</p><button className="main-action">Vedi tutti i giochi</button></div>
