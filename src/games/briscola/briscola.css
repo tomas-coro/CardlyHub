@@ -23,6 +23,8 @@
   .bk-pill{font:700 .66rem "Archivo",sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:99px;border:1px solid var(--gold);color:var(--goldl);background:rgba(0,0,0,.3);white-space:nowrap}
   .bk-pill.bk-btnp{min-height:44px;padding:0 14px;display:flex;align-items:center}
   .bk-pill.bk-btnp:active{background:var(--goldl);color:#1d1209}
+  .bk-deck{max-width:112px;cursor:pointer}
+  .bk-deck option{background:#1b1108;color:#f2e9d3}
 
   /* area tavolo: banda avversario, centro, (mano mia nel dock) */
   .bk-felt{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
@@ -57,10 +59,10 @@
   .bk-slot.bk-m{transform:translateY(14px)}
   .bk-slot .bk-cd{--w:100%;position:absolute;inset:0}
 
-  /* carta napoletana: l'immagine ha fondo bianco, la cornice la disegno io */
+  /* carte regionali: condividono l'ingombro, anche quando il disegno originale è più stretto */
   .bk-cd{position:relative;display:block;flex:none;width:var(--w);aspect-ratio:423/700;padding:0;border:0;border-radius:7px;background:#fffdf6;overflow:hidden;
     box-shadow:0 0 0 1px rgba(0,0,0,.55),0 3px 0 rgba(0,0,0,.4);transition:transform .14s ease,box-shadow .14s ease}
-  .bk-cd img{display:block;width:100%;height:100%;object-fit:cover}
+  .bk-cd img{display:block;width:100%;height:100%;object-fit:contain}
   .bk-cd::after{content:"";position:absolute;inset:3px;border:1px solid rgba(40,30,10,.3);border-radius:5px;pointer-events:none}
   .bk-cd.bk-land{animation:land .34s ease-out}
   .bk-cd.bk-land.bk-top{animation-name:landtop}

@@ -10,5 +10,6 @@ Images used in the Club homepage mockup:
 Cards and card backs (traditional games):
 
 - `src/assets/cards/napoletane/*.jpg` — Neapolitan deck by Trocche100, via [Wikimedia Commons](https://commons.wikimedia.org/), public domain.
+- `src/assets/cards/trevigiane/*.jpg` — cropped from *Carte trevisane* by Vittorio Nieri, via [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Carte_trevisane.jpg), released into the public domain.
 - `public/cards/french/svg-cards.svg` — [SVG-cards 4.0.2](https://github.com/htdebeer/SVG-cards), [LGPL-2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html); full text in `public/cards/french/LICENSE`, authors in `AUTHORS`. Used unmodified.
 - `src/assets/cards/backs/*.svg` — card backs drawn for CardlyHub, inspired by real decks (UNO-style, Neapolitan cubes, French blue dots). UNO is a trademark of its respective owner; its appearance does not imply endorsement.

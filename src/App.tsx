@@ -1,13 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth'
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import './App.css'
 import DadiTable from './games/dadi/DadiTable'
 import MachiavelliTable from './games/machiavelli/MachiavelliTable'
 import BriscolaTable from './games/briscola/BriscolaTable'
+import type { DeckStyle } from './games/briscola/BriscolaTable'
 import UnoTable from './games/uno/UnoTable'
 import BurracoTable from './games/burraco/BurracoTable'
+import RoomLobby from './RoomLobby'
 import denari7 from './assets/cards/napoletane/denari-07.jpg'
 import bastoni3 from './assets/cards/napoletane/bastoni-03.jpg'
 import coppe1 from './assets/cards/napoletane/coppe-01.jpg'
+import { auth, db } from './lib/firebase.ts'
 
 type Concept = 1 | 2 | 3
 
@@ -21,6 +26,10 @@ const games = [
 
 type Game = typeof games[number]
 const defaultRecents = games.map(({ id }) => id)
+
+function loadDeckPreference(): DeckStyle {
+  return localStorage.getItem('briscola-deck') === 'trevigiane' ? 'trevigiane' : 'napoletane'
+}
 
 function loadRecents() {
   try {
@@ -50,12 +59,15 @@ function Logo() {
   return <a className="logo" href="/" aria-label="CardlyHub, pagina iniziale"><i>◆</i>CardlyHub</a>
 }
 
-function Header() {
+function Header({ onJoin, user, authBusy, onAuth }: { onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <header className="site-header">
       <Logo />
       <nav aria-label="Navigazione principale"><a href="#games">Giochi</a><a href="#how">Come funziona</a></nav>
-      <button className="outline-action">Ho un codice</button>
+      <div className="header-actions">
+        <button className="auth-action" onClick={onAuth} disabled={authBusy}>{authBusy ? 'Attendi…' : user ? `Esci · ${user.displayName?.split(' ')[0] ?? 'Profilo'}` : 'Accedi con Google'}</button>
+        <button className="outline-action" onClick={onJoin}>Ho un codice</button>
+      </div>
     </header>
   )
 }
@@ -145,16 +157,16 @@ function GameCard({ game, featured = false, onPlay }: { game: Game; featured?: b
   )
 }
 
-function Product({ recentGames, onPlay }: { recentGames: Game[]; onPlay: (game: Game) => void }) {
+function Product({ recentGames, onPlay, onCreate, onJoin, user, authBusy, onAuth }: { recentGames: Game[]; onPlay: (game: Game) => void; onCreate: () => void; onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <section className="mockup product">
-      <Header />
+      <Header onJoin={onJoin} user={user} authBusy={authBusy} onAuth={onAuth} />
       <div className="product-hero">
         <div className="hero-copy">
           <p className="status"><i /> Giochi di carte, senza distanza</p>
           <h1><span>Il tavolo</span><br />è già pronto.</h1>
           <p className="lead">Apri una stanza, scegli il gioco e condividi il link. Gli altri entrano senza account.</p>
-          <div className="hero-actions"><button className="main-action">Apri un tavolo</button><button className="plain-action">Esplora i giochi</button></div>
+          <div className="hero-actions"><button className="main-action" onClick={onCreate}>Apri un tavolo</button><button className="plain-action">Esplora i giochi</button></div>
         </div>
         <div className="product-showcase">
           <span className="live-badge"><i /> 128 tavoli aperti</span>
@@ -174,16 +186,16 @@ function Product({ recentGames, onPlay }: { recentGames: Game[]; onPlay: (game: 
   )
 }
 
-function Night() {
+function Night({ onCreate, onJoin, user, authBusy, onAuth }: { onCreate: () => void; onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <section className="mockup night">
-      <Header />
+      <Header onJoin={onJoin} user={user} authBusy={authBusy} onAuth={onAuth} />
       <div className="night-hero">
         <div className="night-copy">
           <p className="status"><i /> Tutti online</p>
           <h1>Stasera<br />si gioca.</h1>
           <p className="lead">Il tavolo è già pronto. Manca solo il gruppo.</p>
-          <button className="main-action">Crea una stanza</button>
+          <button className="main-action" onClick={onCreate}>Crea una stanza</button>
         </div>
         <div className="room" aria-label="Anteprima di una stanza di gioco">
           <div className="room-head"><div><small>Stanza di Sofia</small><b>Briscola</b></div><span>CODICE <strong>7K3M</strong></span></div>
@@ -201,10 +213,10 @@ function Night() {
   )
 }
 
-function Library() {
+function Library({ onJoin, user, authBusy, onAuth }: { onJoin: () => void; user: User | null; authBusy: boolean; onAuth: () => void }) {
   return (
     <section className="mockup library">
-      <Header />
+      <Header onJoin={onJoin} user={user} authBusy={authBusy} onAuth={onAuth} />
       <div className="library-intro">
         <div><p className="status"><i /> Scegli il prossimo tavolo</p><h1>Tutti i giochi.<br />Tutta la compagnia.</h1></div>
         <div className="library-side"><p>Dai classici alle sfide veloci: apri una stanza e gioca con chi vuoi.</p><button className="main-action">Vedi tutti i giochi</button></div>
@@ -222,7 +234,54 @@ function App() {
   const [concept, setConcept] = useState<Concept>(1)
   const [recentIds, setRecentIds] = useState(loadRecents)
   const [openGame, setOpenGame] = useState<Game['id'] | null>(null)
+  const [roomMode, setRoomMode] = useState<'create' | 'join' | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [authBusy, setAuthBusy] = useState(false)
+  const [deckPreference, setDeckPreference] = useState<DeckStyle>(loadDeckPreference)
   const recentGames = recentIds.map((id) => games.find((game) => game.id === id)!)
+
+  useEffect(() => onAuthStateChanged(auth, (nextUser) => {
+    setUser(nextUser)
+    if (!nextUser) return
+    const profile = doc(db, 'users', nextUser.uid)
+    void getDoc(profile).then(async (snapshot) => {
+      const savedDeck = snapshot.get('preferences.briscolaDeck')
+      const deck = savedDeck === 'trevigiane' || savedDeck === 'napoletane' ? savedDeck : loadDeckPreference()
+      localStorage.setItem('briscola-deck', deck)
+      setDeckPreference(deck)
+      await setDoc(profile, {
+        displayName: nextUser.displayName,
+        email: nextUser.email,
+        photoURL: nextUser.photoURL,
+        preferences: { briscolaDeck: deck },
+        lastLoginAt: serverTimestamp(),
+        ...(!snapshot.exists() && { createdAt: serverTimestamp() }),
+      }, { merge: true })
+    }).catch((error: unknown) => {
+      console.error('Profilo Firebase:', error)
+      window.alert('Accesso riuscito, ma non è stato possibile sincronizzare il profilo.')
+    })
+  }), [])
+
+  async function toggleAuth() {
+    setAuthBusy(true)
+    try {
+      if (user) await signOut(auth)
+      else await signInWithPopup(auth, new GoogleAuthProvider())
+    } catch (error) {
+      console.error('Accesso Google:', error)
+      window.alert('Accesso con Google non riuscito. Riprova.')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  function changeDeckPreference(deck: DeckStyle) {
+    localStorage.setItem('briscola-deck', deck)
+    setDeckPreference(deck)
+    if (user) void setDoc(doc(db, 'users', user.uid), { preferences: { briscolaDeck: deck } }, { merge: true }).catch((error: unknown) => console.error('Preferenza mazzo:', error))
+  }
+
   const play = (game: Game) => {
     const next = [game.id, ...recentIds.filter((id) => id !== game.id)]
     localStorage.setItem('recent-games', JSON.stringify(next))
@@ -232,12 +291,18 @@ function App() {
   }
 
   if (openGame === 'dadi') return <main><DadiTable onBack={() => setOpenGame(null)} /></main>
-  if (openGame === 'briscola') return <main><BriscolaTable onBack={() => setOpenGame(null)} /></main>
+  if (openGame === 'briscola') return <main><BriscolaTable onBack={() => setOpenGame(null)} deck={deckPreference} onDeckChange={changeDeckPreference} /></main>
   if (openGame === 'uno') return <main><UnoTable onBack={() => setOpenGame(null)} /></main>
   if (openGame === 'burraco') return <main><BurracoTable onBack={() => setOpenGame(null)} /></main>
   if (openGame === 'machiavelli') return <main><MachiavelliTable onBack={() => setOpenGame(null)} /></main>
 
-  return <main><Picker concept={concept} onChange={setConcept} />{concept === 1 && <Product recentGames={recentGames} onPlay={play} />}{concept === 2 && <Night />}{concept === 3 && <Library />}</main>
+  return <main>
+    <Picker concept={concept} onChange={setConcept} />
+    {concept === 1 && <Product recentGames={recentGames} onPlay={play} onCreate={() => setRoomMode('create')} onJoin={() => setRoomMode('join')} user={user} authBusy={authBusy} onAuth={toggleAuth} />}
+    {concept === 2 && <Night onCreate={() => setRoomMode('create')} onJoin={() => setRoomMode('join')} user={user} authBusy={authBusy} onAuth={toggleAuth} />}
+    {concept === 3 && <Library onJoin={() => setRoomMode('join')} user={user} authBusy={authBusy} onAuth={toggleAuth} />}
+    {roomMode && <RoomLobby initialMode={roomMode} onClose={() => setRoomMode(null)} />}
+  </main>
 }
 
 export default App

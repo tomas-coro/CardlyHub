@@ -2,15 +2,19 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './briscola.css'
 import { apply, buildDeck, cardName, newGame, score, shuffle, trickWinner, winner } from './engine.ts'
 import type { Card, GameState, Suit } from './engine.ts'
-import backUrl from '../../assets/cards/backs/napoletane-back.svg'
+import napoletaneBack from '../../assets/cards/backs/napoletane-back.svg'
+import trevigianeBack from '../../assets/cards/backs/trevigiane-back.svg'
 
 // Tavolo di Briscola (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri").
 // Le regole vivono tutte in engine.ts; qui c'è solo interfaccia e animazioni.
 // I punti NON si mostrano mai durante la partita: si contano a mente. Compaiono solo a fine partita.
 
 const NAMES = ['Tomas', 'Lei']
-const IMGS = import.meta.glob<string>('../../assets/cards/napoletane/*.jpg', { eager: true, query: '?url', import: 'default' })
-const imgOf = (c: Card) => IMGS[`../../assets/cards/napoletane/${c.s}-${String(c.r).padStart(2, '0')}.jpg`]
+export type DeckStyle = 'napoletane' | 'trevigiane'
+const NAPOLETANE = import.meta.glob<string>('../../assets/cards/napoletane/*.jpg', { eager: true, query: '?url', import: 'default' })
+const TREVIGIANE = import.meta.glob<string>('../../assets/cards/trevigiane/*.jpg', { eager: true, query: '?url', import: 'default' })
+const BACKS: Record<DeckStyle, string> = { napoletane: napoletaneBack, trevigiane: trevigianeBack }
+const imgOf = (c: Card, deck: DeckStyle) => (deck === 'napoletane' ? NAPOLETANE : TREVIGIANE)[`../../assets/cards/${deck}/${c.s}-${String(c.r).padStart(2, '0')}.jpg`]
 
 const ICON: Record<Suit, React.ReactNode> = {
   denari: <><circle cx="12" cy="12" r="9" fill="none" strokeWidth="2.4" /><circle cx="12" cy="12" r="3.6" stroke="none" /></>,
@@ -35,23 +39,23 @@ function useWide() {
 
 const deal = (): GameState => newGame({ names: NAMES, first: Math.random() < 0.5 ? 0 : 1 }, shuffle(buildDeck()))
 
-function Face({ card, cls = '' }: { card: Card; cls?: string }) {
-  return <span className={`bk-cd ${cls}`}><img src={imgOf(card)} alt={cardName(card)} /></span>
+function Face({ card, deck, cls = '' }: { card: Card; deck: DeckStyle; cls?: string }) {
+  return <span className={`bk-cd ${cls}`}><img src={imgOf(card, deck)} alt={cardName(card)} /></span>
 }
-const Back = () => <span className="bk-cd"><img src={backUrl} alt="" /></span>
+const Back = ({ deck }: { deck: DeckStyle }) => <span className="bk-cd"><img src={BACKS[deck]} alt="" /></span>
 
 // Mucchietto delle carte prese: solo carte, nessuna scritta.
-function Pile({ n, mine = false }: { n: number; mine?: boolean }) {
+function Pile({ n, deck, mine = false }: { n: number; deck: DeckStyle; mine?: boolean }) {
   return (
     <div className="bk-pile" data-pile={mine ? 'mine' : 'opp'}>
       <span className="bk-stk">
-        {n > 0 ? <><Back />{n > 1 && <Back />}<Back /></> : <span className="bk-nul" />}
+        {n > 0 ? <><Back deck={deck} />{n > 1 && <Back deck={deck} />}<Back deck={deck} /></> : <span className="bk-nul" />}
       </span>
     </div>
   )
 }
 
-export default function BriscolaTable({ onBack }: { onBack: () => void }) {
+export default function BriscolaTable({ onBack, deck, onDeckChange }: { onBack: () => void; deck: DeckStyle; onDeckChange: (deck: DeckStyle) => void }) {
   const wide = useWide()
   const [game, setGame] = useState<GameState>(deal)
   const [viewer, setViewer] = useState(game.turn)        // chi sta guardando lo schermo
@@ -154,7 +158,7 @@ export default function BriscolaTable({ onBack }: { onBack: () => void }) {
     const c = slotCard(p)
     const fresh = c && c.id === freshId ? ` bk-land${p === me ? '' : ' bk-top'}` : ''
     const win = busy && taker === p ? ' bk-win' : ''
-    return <span className={`bk-slot bk-${cls}`}>{c && <Face card={c} cls={win + fresh} />}</span>
+    return <span className={`bk-slot bk-${cls}`}>{c && <Face card={c} deck={deck} cls={win + fresh} />}</span>
   }
   const nOp = cover !== null ? 3 : game.hands[op].length
   const sc = [score(game, 0), score(game, 1)]
@@ -167,22 +171,25 @@ export default function BriscolaTable({ onBack }: { onBack: () => void }) {
           <div className={`bk-av${me === 1 ? ' bk-lei' : ''}`}>{NAMES[me][0]}</div>
           <div className="bk-who"><b>{NAMES[me]}</b><span>{over ? 'Partita finita' : game.turn === me ? 'Tocca a te' : `Tocca a ${NAMES[op]}`}</span></div>
           <span className="bk-sp" />
+          <select className="bk-pill bk-deck" aria-label="Stile del mazzo" value={deck} onChange={(event) => onDeckChange(event.target.value as DeckStyle)}>
+            <option value="napoletane">Napoletane</option><option value="trevigiane">Trevigiane</option>
+          </select>
           <span className="bk-pill">Mazzo {n}</span>
           <button className={`bk-pill bk-btnp bk-exit${askExit ? ' warn' : ''}`} onClick={leave}>{askExit ? 'Esci dalla partita?' : '‹ Esci'}</button>
         </div>
 
         <div className="bk-felt">
           <div className="bk-band">
-            <div className="bk-oh" data-oh>{Array.from({ length: nOp }, (_, i) => <Back key={i} />)}</div>
-            <Pile n={game.piles[op].length} />
+            <div className="bk-oh" data-oh>{Array.from({ length: nOp }, (_, i) => <Back key={i} deck={deck} />)}</div>
+            <Pile n={game.piles[op].length} deck={deck} />
           </div>
           <div className="bk-mid">
             <div className="bk-dcol">
               <div className="bk-dz" data-dz>
                 {n > 0
-                  ? <span className="bk-tr"><Face card={game.trump} /></span>
+                  ? <span className="bk-tr"><Face card={game.trump} deck={deck} /></span>
                   : <span className="bk-vuoto"><svg viewBox="0 0 24 24" aria-label={`Briscola: ${trump}`} fill="currentColor" stroke="currentColor">{ICON[trump]}</svg></span>}
-                {n > 1 && <span className="bk-dk"><Back /><Back /><Back /><span className="bk-cnt"><b>{n}</b></span></span>}
+                {n > 1 && <span className="bk-dk"><Back deck={deck} /><Back deck={deck} /><Back deck={deck} /><span className="bk-cnt"><b>{n}</b></span></span>}
               </div>
             </div>
             <div className="bk-tcol">
@@ -195,11 +202,11 @@ export default function BriscolaTable({ onBack }: { onBack: () => void }) {
           <div className="bk-hand" data-hand role="group" aria-label="La tua mano">
             {cover === null && game.hands[me].map((c, i) => (
               <button key={c.id} className={`bk-cd${canPlay ? ' bk-can' : ''}`} disabled={!canPlay} onClick={() => play(i)} aria-label={`${cardName(c)}${c.s === trump ? ' (briscola)' : ''}`}>
-                <img src={imgOf(c)} alt="" />
+                <img src={imgOf(c, deck)} alt="" />
               </button>
             ))}
           </div>
-          <Pile n={game.piles[me].length} mine />
+          <Pile n={game.piles[me].length} deck={deck} mine />
         </div>
 
         {cover !== null && (

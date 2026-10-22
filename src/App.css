@@ -37,9 +37,12 @@ a { text-decoration: none; }
 }
 .site-header nav { display: flex; gap: 30px; font-size: 12px; }
 .site-header > :last-child { justify-self: end; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
 .logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 900; letter-spacing: -.055em; }
 .logo i { color: var(--coral); font-size: 12px; font-style: normal; }
-.outline-action { padding: 10px 16px; border: 1px solid currentColor; border-radius: 99px; background: transparent; font: 750 11px inherit; }
+.outline-action, .auth-action { padding: 10px 16px; border: 1px solid currentColor; border-radius: 99px; background: transparent; font: 750 11px inherit; white-space: nowrap; }
+.auth-action { color: white; border-color: var(--purple); background: var(--purple); }
+.auth-action:disabled { cursor: wait; opacity: .65; }
 .status { display: flex; align-items: center; gap: 9px; margin: 0 0 20px; font-size: 11px; font-weight: 800; }
 .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 5px rgb(200 239 98 / 18%); }
 .hero-copy h1, .night-copy h1, .library-intro h1 { margin: 0; font-size: clamp(64px, 7.3vw, 105px); font-weight: 900; line-height: .84; letter-spacing: -.085em; }
@@ -47,6 +50,28 @@ a { text-decoration: none; }
 .hero-actions { display: flex; align-items: center; gap: 18px; }
 .main-action { padding: 14px 19px; border: 0; border-radius: 7px; color: white; background: var(--purple); box-shadow: 4px 4px 0 var(--ink); font: 800 12px inherit; white-space: nowrap; }
 .plain-action { padding: 9px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; font: 800 12px inherit; }
+
+/* Supabase room lobby */
+.room-overlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; color: var(--ink); background: rgb(23 21 43 / 72%); backdrop-filter: blur(8px); }
+.room-modal { position: relative; width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow: auto; padding: 34px; border: 2px solid var(--ink); border-radius: 18px; background: var(--paper); box-shadow: 9px 10px 0 var(--coral); }
+.room-modal h2 { margin: 0; font-size: clamp(35px, 7vw, 52px); letter-spacing: -.06em; }
+.room-modal > p:not(.status) { line-height: 1.5; }
+.room-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border: 1px solid var(--ink); border-radius: 50%; background: transparent; font-size: 22px; }
+.room-modal form { display: grid; gap: 18px; margin-top: 26px; }
+.room-modal label { display: grid; gap: 7px; font-size: 11px; font-weight: 850; }
+.room-modal input, .room-modal select { width: 100%; padding: 13px; border: 1.5px solid var(--ink); border-radius: 7px; color: var(--ink); background: white; font: 700 15px inherit; }
+.room-modal form .main-action { width: 100%; }
+.room-modal button:disabled { cursor: wait; opacity: .6; }
+.room-code-input { text-transform: uppercase; letter-spacing: .25em; }
+.room-switch { margin-top: 18px; padding: 4px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; font: 750 11px inherit; }
+.room-error { padding: 11px; border-radius: 7px; color: #8b2018; background: #ffd8d3; font-size: 12px; }
+.room-code-live { width: 100%; display: flex; align-items: center; justify-content: space-between; margin: 22px 0; padding: 17px; border: 2px solid var(--ink); border-radius: 9px; color: var(--ink); background: var(--lime); font: 900 26px inherit; letter-spacing: .18em; }
+.room-code-live small { font-size: 9px; letter-spacing: 0; }
+.room-player-list { display: grid; gap: 8px; }
+.room-player-list > div { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 9px; }
+.room-player-list i { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--purple); font-size: 9px; font-style: normal; font-weight: 900; }
+.room-player-list b { font-size: 12px; }
+.room-player-list small, .room-note { opacity: .65; font-size: 9px; }
 
 /* 01 — product first */
 .product { color: var(--ink); background: var(--paper); }
@@ -245,7 +270,8 @@ a { text-decoration: none; }
 }
 
 @media (max-width: 420px) {
-  .outline-action { padding: 8px 11px; }
+  .header-actions { gap: 4px; }
+  .outline-action, .auth-action { padding: 8px 9px; font-size: 9px; }
   .game-card { gap: 11px; }
   .mini-games { grid-template-columns: 1fr; }
   .mini-games .game-card { min-height: 105px; }
