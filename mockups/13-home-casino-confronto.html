@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home casinò - desktop e mobile</title>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Hanken+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#d4af5a}
+*{box-sizing:border-box}
+body{margin:0;background:#14100c;color:#f6ecd6;font-family:"Hanken Grotesk",sans-serif;padding:24px 18px 60px}
+h1{font-family:"Gloock",serif;font-weight:400;font-size:1.6rem;margin:0 0 4px}
+.sub{margin:0 0 22px;opacity:.7;font-size:.9rem}
+.row{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.cap{font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 8px}
+.desk{width:880px;height:560px;border-radius:12px;border:1px solid #3a2f24;overflow:hidden;background:#000}
+.desk iframe{width:1440px;height:915px;border:0;transform:scale(.611);transform-origin:0 0}
+.mob{width:390px;height:780px;border-radius:30px;border:6px solid #2a2118;overflow:hidden;background:#000}
+.mob iframe{width:100%;height:100%;border:0}
+.note{margin-top:22px;font-size:.85rem;opacity:.75;max-width:70ch;line-height:1.5}
+@media (max-width:900px){.desk{width:100%;height:auto;aspect-ratio:1440/915}.desk iframe{transform:none;width:100%;height:100%}}
+</style></head><body>
+<h1>Salotto casinò - desktop e mobile</h1>
+<p class="sub">È la stessa pagina (<code>13-home-casino.html</code>) vista in due larghezze. Toccate i giochi dentro le cornici.</p>
+<div class="row">
+  <div><p class="cap">Desktop 1440px (ridotto)</p><div class="desk"><iframe src="13-home-casino.html" title="Home desktop"></iframe></div></div>
+  <div><p class="cap">Telefono 390px</p><div class="mob"><iframe src="13-home-casino.html" title="Home mobile"></iframe></div></div>
+</div>
+<p class="note">Per vedere la pagina a grandezza vera aprite <b>13-home-casino.html</b> e ridimensionate la finestra.</p>
+</body></html>
