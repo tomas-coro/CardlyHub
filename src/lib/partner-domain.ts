@@ -9,6 +9,7 @@ export type Invite<State = unknown> = {
   guest_id: string
   status: 'pending' | 'accepted' | 'closed'
   state: State
+  last_by?: string   // uid di chi ha scritto l'ultimo stato: serve a riprodurre sull'altro schermo le mosse dell'avversario
 }
 
 export function createPair(userId: string, name: string): Pair {
@@ -29,5 +30,5 @@ export function partnerOf(pair: Pair, userId: string) {
 export function createInvite<State>(pair: Pair, hostId: string, game: string, state: State): Invite<State> {
   const partner = partnerOf(pair, hostId)
   if (!partner) throw new Error('Abbina prima il secondo account.')
-  return { game, host_id: hostId, guest_id: partner.id, status: 'pending', state }
+  return { game, host_id: hostId, guest_id: partner.id, status: 'pending', state, last_by: hostId }
 }

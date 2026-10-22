@@ -32,6 +32,6 @@ test('trova il partner solo in una coppia completa', () => {
 test('crea un invito generico indirizzato al partner', () => {
   const pair = acceptPair(createPair('tomas', 'Tomas'), 'lei', 'Amore')
   assert.deepEqual(createInvite(pair, 'tomas', 'briscola', { turn: 0 }), {
-    game: 'briscola', host_id: 'tomas', guest_id: 'lei', status: 'pending', state: { turn: 0 },
+    game: 'briscola', host_id: 'tomas', guest_id: 'lei', status: 'pending', state: { turn: 0 }, last_by: 'tomas',
   })
 })

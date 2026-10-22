@@ -60,4 +60,4 @@ export function subscribeInvite<State>(pairId: string, next: (invite: InviteSnap
 
 export const acceptInvite = (pairId: string) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { status: 'accepted', updated_at: serverTimestamp() })
 export const closeInvite = (pairId: string) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { status: 'closed', updated_at: serverTimestamp() })
-export const updateInviteState = <State>(pairId: string, state: State) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { state: encodeState(state), updated_at: serverTimestamp() })
+export const updateInviteState = <State>(pairId: string, state: State, by: string) => updateDoc(doc(db, 'pairs', pairId, 'invites', 'active'), { state: encodeState(state), last_by: by, updated_at: serverTimestamp() })

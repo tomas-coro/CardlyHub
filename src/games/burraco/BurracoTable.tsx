@@ -3,7 +3,8 @@ import './burraco.css'
 import { DEFAULT_RULES, actionError, apply, buildDeck, burraco, isWildCard, newGame, shortName, shuffle, tablePoints, topCard } from './engine.ts'
 import type { Action, BurracoEvent, Card, End, GameState, Meld, Rules } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
-import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { isRemoteChange, playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { burracoMove } from './transition.ts'
 
 // Tavolo di Burraco (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri", nessun bot).
 // Le regole e i punti vivono tutti in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, pannelli.
@@ -104,7 +105,7 @@ function MeldView({ m, side, rules }: { m: Meld; side: 'mine' | 'her'; rules: Ru
     <div className={`bu-meld${b ? ` bu-bur bu-${b.kind}` : ''}`} data-meld={m.id} data-side={side} title={b ? `Burraco ${KIND_LABEL[b.kind]}: ${b.pts} punti` : undefined}>
       {b && <span className="bu-tag">{KIND_LABEL[b.kind]}</span>}
       {m.cards.map((c, i) => (
-        <span key={c.id} className={`bu-pc${m.wild === i ? ' bu-wild' : ''}`} style={{ zIndex: i + 1 }} aria-label={cardName(c)}><Svg id={faceId(c)} /></span>
+        <span key={c.id} data-id={c.id} className={`bu-pc${m.wild === i ? ' bu-wild' : ''}`} style={{ zIndex: i + 1 }} aria-label={cardName(c)}><Svg id={faceId(c)} /></span>
       ))}
     </div>
   )
@@ -161,6 +162,50 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
   // Stato "vivo" per i gestori del trascinamento (che vivono fuori dal render).
   const live = useRef({ game, me, myTurn, sel })
   useLayoutEffect(() => { live.current = { game, me, myTurn, sel } })
+
+  // Mosse dell'avversario: messaggio, carte che scivolano nei suoi giochi e nel pozzo (FLIP: da dove erano a dove
+  // sono ora; le carte nuove partono dalla sua mano), dorso che vola dal tallone o dal pozzo quando lui pesca.
+  // La posizione di ogni carta si ricorda a ogni disegno, così il confronto parte sempre dall'ultima situazione vista.
+  const prevGame = useRef(game)
+  const cardRects = useRef(new Map<number, DOMRect>())
+  useLayoutEffect(() => {
+    const el = root.current
+    if (!el) return
+    const els = [...el.querySelectorAll<HTMLElement>('.bu-melds [data-id], .bu-dis [data-id]')]
+    const now = new Map(els.map((c) => [Number(c.dataset.id), c.getBoundingClientRect()]))
+    const prev = prevGame.current
+    if (online && isRemoteChange(online) && prev !== game) {
+      const events = burracoMove(prev, game)
+      const text = events ? describe(events, game.names) : ''
+      if (text) say(text)
+      if (events && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const hand = el.querySelector<HTMLElement>('.bu-oh')?.getBoundingClientRect()
+        for (const c of els) {
+          const r = now.get(Number(c.dataset.id))!
+          const old = cardRects.current.get(Number(c.dataset.id))
+          if (!old && !hand) continue
+          const dx = (old ?? hand!).left - r.left, dy = (old ?? hand!).top - r.top
+          if (Math.abs(dx) + Math.abs(dy) < 2) continue
+          c.animate([{ translate: `${dx}px ${dy}px`, scale: old ? '1' : '.6' }, { translate: '0 0', scale: '1' }],
+            { duration: old ? 400 : 560, easing: 'cubic-bezier(.3,.7,.3,1)' })
+        }
+        // pesca dell'avversario: un dorso vola dal tallone (o dal pozzo se l'ha preso) alla sua mano
+        const drewFromPile = game.discard.length < prev.discard.length && game.hands[op].length > prev.hands[op].length
+        const source = el.querySelector<HTMLElement>(drewFromPile ? '.bu-dis' : '.bu-dk')?.getBoundingClientRect()
+        if (hand && source && game.hands[op].length > prev.hands[op].length) {
+          const fly = document.createElement('div')
+          fly.className = 'bu-flyback'
+          fly.style.cssText = `position:fixed;z-index:9999;pointer-events:none;left:${source.left + source.width / 2 - 24}px;top:${source.top + source.height / 2 - 34}px;width:48px;height:68px;border-radius:6px;background:#7a1f2b;border:2px solid #f4efe1;box-shadow:0 4px 10px rgba(0,0,0,.5)`
+          document.body.appendChild(fly)
+          const move = fly.animate([{ transform: 'translate(0,0) scale(1)' }, { transform: `translate(${hand.left + hand.width / 2 - source.left - source.width / 2}px,${hand.top + hand.height / 2 - source.top - source.height / 2}px) scale(.6)`, opacity: 0.4 }],
+            { duration: 560, easing: 'cubic-bezier(.45,.05,.3,1)', fill: 'forwards' })
+          move.onfinish = () => fly.remove()
+        }
+      }
+    }
+    prevGame.current = game
+    cardRects.current = now
+  })
 
   // I messaggi spariscono dopo un po', ma solo quando nessuna schermata copre il tavolo.
   useEffect(() => {
@@ -484,7 +529,7 @@ export default function BurracoTable({ onBack, onResult, online, onRematch }: { 
               <button className={`bu-dis${canDraw && np ? ' bu-pulse' : ''}`} style={{ ['--off' as string]: `${off.toFixed(1)}px` }} data-dnd="dis" disabled={!canDraw || !np}
                 onClick={() => { if (!justDragged()) act({ type: 'take' }) }} aria-label="Prendi il pozzo">
                 <span className="bu-cap">Pozzo</span>
-                <span className="bu-fan">{pile.map((c) => <span key={c.id} className="bu-pc" aria-label={cardName(c)}><Svg id={faceId(c)} /></span>)}</span>
+                <span className="bu-fan">{pile.map((c) => <span key={c.id} data-id={c.id} className="bu-pc" aria-label={cardName(c)}><Svg id={faceId(c)} /></span>)}</span>
                 <span className="bu-lbl bu-cnt"><b>{np}</b></span>
               </button>
             </div>

@@ -3,6 +3,8 @@ import './briscola.css'
 import { apply, buildDeck, cardName, newGame, score, shuffle, trickWinner, winner } from './engine.ts'
 import type { Card, GameState, Suit } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
+import { isRemoteChange } from '../../lib/online-game.ts'
+import { briscolaTransition } from './transition.ts'
 import napoletaneBack from '../../assets/cards/backs/napoletane-back.svg'
 import trevigianeBack from '../../assets/cards/backs/trevigiane-back.svg'
 
@@ -119,6 +121,29 @@ export default function BriscolaTable({ onBack, onResult, deck, online }: { onBa
     }
     later(done, 500)
   }
+
+  // Mossa dell'avversario: l'altro dispositivo ha già animato la sua, qui si riproduce la stessa cosa dal confronto
+  // tra stato precedente e nuovo (carta che atterra, presa che vola sul mucchio, carte pescate).
+  // Va PRIMA dell'effetto che legge `drawn`, perché lo riempie.
+  const prevGame = useRef(game)
+  useLayoutEffect(() => {
+    const prev = prevGame.current
+    prevGame.current = game
+    if (!online || !isRemoteChange(online)) return
+    const t = briscolaTransition(prev, game)
+    if (t?.type === 'play') {
+      setFreshId(t.card.id)
+      later(() => setFreshId(null), 400)
+      if (t.trickComplete && t.winner !== null) {
+        setBusy(true)
+        setTaker(t.winner)
+        later(() => fly(t.winner!, () => { setBusy(false); setTaker(null) }), 1100)
+      }
+    } else if (t?.type === 'collect') {
+      drawn.current = t.drawn
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game])
 
   // Le carte pescate scivolano dal mazzo alla mano (solo quando nessuna schermata copri nasconde il tavolo).
   useLayoutEffect(() => {

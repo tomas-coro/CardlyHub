@@ -3,7 +3,11 @@ export type OnlineGame<State> = {
   hostId: string
   state: State
   onState: (state: State) => void
+  lastBy?: string   // uid di chi ha scritto l'ultimo stato
 }
+
+// Vero quando l'ultimo stato l'ha scritto l'altro giocatore: è la mossa da riprodurre animata sul nostro schermo.
+export const isRemoteChange = ({ userId, lastBy }: Pick<OnlineGame<unknown>, 'userId' | 'lastBy'>): boolean => lastBy !== undefined && lastBy !== userId
 
 export const playerIndex = ({ userId, hostId }: Pick<OnlineGame<unknown>, 'userId' | 'hostId'>): 0 | 1 => userId === hostId ? 0 : 1
 

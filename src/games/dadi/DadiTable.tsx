@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import './dadi.css'
 import { CATEGORIES, apply, newGame, score, total, type Category, type GameState } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
-import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { isRemoteChange, playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { diceTransition } from './transition.ts'
 
 // Tavolo dadi (Yahtzee, un giocatore): 5 dadi 3D, 3 tiri per turno, tocca un dado per bloccarlo.
 // Il lancio è animato a mano (requestAnimationFrame) per controllare rimbalzi, rotazione e velocità.
@@ -59,6 +60,8 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
   const last = useRef(0)
   const raf = useRef(0)
   const reported = useRef(false)
+  const throwing = useRef(false)        // vero da quando parte un lancio a quando finisce (anche prima che React ridisegni)
+  const prevGame = useRef(game)
 
   // dado fermo: posa finale con la sua piccola imperfezione di posizione e rotazione
   const rest = (i: number) => {
@@ -73,12 +76,24 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
     pose.current.jx[i] = rr(-5, 5); pose.current.jy[i] = rr(-4, 4); pose.current.yaw[i] = rr(-14, 14)
   }
 
+  // Lancio dell'avversario: va dichiarato PRIMA dell'effetto di sincronizzazione, che altrimenti farebbe
+  // comparire i dadi già fermi sui nuovi valori.
   useEffect(() => {
-    if (busy) return
+    const prev = prevGame.current
+    prevGame.current = game
+    if (!online || !isRemoteChange(online) || throwing.current) return
+    const t = diceTransition(prev, game)
+    if (t) throwDice(t.dice, t.held)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game])
+  const diceKey = game.dice.join()
+  useEffect(() => {
+    if (busy || throwing.current) return
     for (let i = 0; i < N; i++) { valsRef.current[i] = game.dice[i]; jitter(i); rest(i) }
     // oxlint-disable-next-line react/set-state-in-effect -- sincronizza l'animazione con lo snapshot remoto
     setVals(game.dice)
-  }, [busy, game.dice])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, diceKey])
   useEffect(() => () => cancelAnimationFrame(raf.current), [])
   useEffect(() => {
     if (game.phase !== 'over') { reported.current = false; return }
@@ -154,7 +169,7 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
     active.current = active.current.filter((t) => !t.finished)
     if (active.current.length) raf.current = requestAnimationFrame(tick)
     else {
-      skip.current = false; speed.current = 1
+      skip.current = false; speed.current = 1; throwing.current = false
       setVals(valsRef.current.slice()); setSkipping(false); setBusy(false)
     }
   }
@@ -171,16 +186,21 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
     const result = apply(game, { type: 'roll' }, rnd)
     if ('error' in result) return
     saveGame(result.state)
+    throwDice(result.state.dice, held)
+  }
+
+  // Anima il lancio dei dadi non tenuti verso i valori già decisi dal motore (vale per il nostro tiro e per quello dell'avversario).
+  function throwDice(dice: number[], keep: boolean[]) {
     skip.current = false; speed.current = 1
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const todo: Throw[] = []
     let n = 0
     for (let i = 0; i < N; i++) {
-      if (held[i]) continue
-      const v = result.state.dice[i]
-      if (reduce) { valsRef.current[i] = v; jitter(i); rest(i) } else todo.push(makeThrow(i, v, n++))
+      if (keep[i]) continue
+      if (reduce) { valsRef.current[i] = dice[i]; jitter(i); rest(i) } else todo.push(makeThrow(i, dice[i], n++))
     }
-    if (!todo.length) { setVals(result.state.dice); return }
+    if (!todo.length) { setVals(dice); return }
+    throwing.current = true
     active.current = todo
     last.current = performance.now()
     setBusy(true)
@@ -248,7 +268,7 @@ export default function DadiTable({ onBack, onResult, online, onRematch }: { onB
             const mine = game.scores[me][category]
             const other = game.scores[1 - me][category]
             return <button key={category} disabled={!myTurn || busy || left === 3 || mine !== undefined} onClick={() => choose(category)}>
-              <span>{LABEL[category]}</span><small>{mine ?? (left < 3 ? score(category, game.dice) : '—')} · {game.names[1 - me]}: {other ?? '—'}</small>
+              <span>{LABEL[category]}</span><small>{mine ?? (left < 3 && myTurn ? score(category, game.dice) : '—')} · {game.names[1 - me]}: {other ?? '—'}</small>
             </button>
           })}
         </div>

@@ -4,7 +4,8 @@ import './uno.css'
 import { COLORS, DEFAULT_RULES, GOAL, MERCY_LIMIT, apply, buildDeck, canStack, isNumber, newGame, playError, shuffle, siblings, topCard } from './engine.ts'
 import type { Action, Card, Color, GameState, Rules, UnoEvent } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
-import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { isRemoteChange, playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { unoTransition } from './transition.ts'
 import { COL, COLOR_NAME, cardLabel } from './colors.ts'
 import { UnoFace } from './UnoFace.tsx'
 import backUrl from '../../assets/cards/backs/uno-back.svg'
@@ -153,6 +154,26 @@ export default function UnoTable({ onBack, onResult, online, onRematch }: { onBa
     window.addEventListener('resize', fitHand)
     return () => window.removeEventListener('resize', fitHand)
   })
+
+  // Mossa dell'avversario: si riproduce sul nostro schermo ciò che il suo dispositivo ha già animato
+  // (carta che atterra, carte pescate, messaggio, scritta UNO). Va PRIMA dell'effetto che legge `drawn`.
+  const prevGame = useRef(game)
+  useLayoutEffect(() => {
+    const prev = prevGame.current
+    prevGame.current = game
+    if (!online || !isRemoteChange(online)) return
+    const t = unoTransition(prev, game)
+    if (!t) return
+    const text = describe(t.events, game.names)
+    if (text) say(text)
+    drawn.current = t.draws
+    if (t.played.length) {
+      setFresh({ ids: t.played, by: t.by })
+      later(() => setFresh(null), 500)
+      if (t.unoCall) setFlash(++toastN.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game])
 
   // Le carte pescate scivolano dal mazzo alla mano (solo quando nessuna schermata copri nasconde il tavolo).
   useLayoutEffect(() => {

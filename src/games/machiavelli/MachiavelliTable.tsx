@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './machiavelli.css'
 import { apply, buildDeck, describe, newGame, playedCount, shuffle } from './engine.ts'
 import type { Action, Card, GameState } from './engine.ts'
 import type { GameResult } from '../../lib/game-result.ts'
-import { playerIndex, type OnlineGame } from '../../lib/online-game.ts'
+import { isRemoteChange, playerIndex, type OnlineGame } from '../../lib/online-game.ts'
 
 // Tavolo di Machiavelli (Fase 1: locale, 2 giocatori sullo stesso schermo con schermata "copri").
 // Le regole vivono tutte in engine.ts; qui c'è solo interfaccia: selezione, trascinamento, animazioni.
@@ -112,6 +112,54 @@ export default function MachiavelliTable({ onBack, onResult, online, onRematch }
     if (game?.phase !== 'over') { reported.current = false; return }
     if (!reported.current) { reported.current = true; onResult?.({ winner: game.winner }) }
   }, [game, onResult])
+
+  // Mosse dell'avversario: ogni carta del tavolo che si è spostata scivola dalla vecchia posizione alla nuova (FLIP),
+  // le carte nuove arrivano dalla sua mano, la sua pesca è un dorso che vola dal mazzo a lui. Si ricorda la posizione
+  // di ogni carta a ogni disegno, anche per le nostre mosse, così il confronto parte sempre dall'ultima situazione vista.
+  const prevGame = useRef(game)
+  const cardRects = useRef(new Map<number, { x: number; y: number }>())   // posizioni rispetto al feltro, così lo scroll non le falsa
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    const felt = root?.querySelector<HTMLElement>('[data-felt]')
+    if (!root || !felt || !game) return
+    const els = [...felt.querySelectorAll<HTMLElement>('[data-card]')]
+    const base = felt.getBoundingClientRect()
+    const rel = (r: DOMRect) => ({ x: r.left - base.left + felt.scrollLeft, y: r.top - base.top + felt.scrollTop })
+    const now = new Map(els.map((el) => [Number(el.dataset.card), rel(el.getBoundingClientRect())]))
+    const prev = prevGame.current
+    if (online && isRemoteChange(online) && prev && prev !== game && !reducedMotion()) {
+      const opp = root.querySelector<HTMLElement>('.av')?.getBoundingClientRect()
+      for (const el of els) {
+        const cur = now.get(Number(el.dataset.card))!
+        const old = cardRects.current.get(Number(el.dataset.card))
+        const r = el.getBoundingClientRect()
+        if (!old && !opp) continue
+        const dx = old ? old.x - cur.x : opp!.left - r.left
+        const dy = old ? old.y - cur.y : opp!.top - r.top
+        if (Math.abs(dx) + Math.abs(dy) < 2) continue
+        el.animate(
+          [{ translate: `${dx}px ${dy}px`, scale: old ? '1' : '.5', zIndex: 20 }, { translate: '0 0', scale: '1', zIndex: 20 }],
+          { duration: old ? 420 : 560, easing: 'cubic-bezier(.3,.7,.3,1)' },
+        )
+      }
+      const other = 1 - me
+      const deck = pileRef.current?.querySelector<HTMLElement>('.top')?.getBoundingClientRect()
+      if (opp && deck && game.hands[other].length > prev.hands[other].length && game.table.length === prev.table.length) {
+        const fly = document.createElement('div')
+        fly.className = 'fly'
+        fly.style.cssText = `left:${deck.left}px;top:${deck.top}px;width:${deck.width}px;height:${deck.height}px`
+        fly.innerHTML = `<div class="fi"><div class="ff fb"><svg viewBox="0 0 169.075 244.64"><use href="${SPRITE}#back"/></svg></div></div>`
+        document.body.appendChild(fly)
+        const move = fly.animate(
+          [{ transform: 'translate(0,0) scale(1)' }, { transform: `translate(${opp.left - deck.left}px,${opp.top - deck.top}px) scale(.45)`, opacity: 0.4 }],
+          { duration: 640, easing: 'cubic-bezier(.45,.05,.3,1)', fill: 'forwards' },
+        )
+        move.onfinish = () => fly.remove()
+      }
+    }
+    prevGame.current = game
+    cardRects.current = now
+  })
 
   const hand = useMemo(() => (game ? sortHand(game.hands[me], sort, order) : []), [game, me, sort, order])
   // sempre l'ultima versione, per i listener della finestra (che non si ricreano a ogni render)
@@ -309,7 +357,7 @@ export default function MachiavelliTable({ onBack, onResult, online, onRematch }
           <div className="who"><b>{game.names[other]}</b><span>{game.hands[other].length} carte</span></div>
           <div className="sp" />
           {!wide && pile}
-          <span className="pill turn">Tocca a {game.names[me]}</span>
+          <span className="pill turn">Tocca a {game.names[game.turn]}</span>
         </header>
 
         <div className={`felt${drop?.kind === 'new' ? ' dropnew' : ''}`} data-felt>
