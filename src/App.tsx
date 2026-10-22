@@ -28,9 +28,9 @@ import type { GameState as MachiavelliState } from './games/machiavelli/engine.t
 import type { GameState as DadiState } from './games/dadi/engine.ts'
 
 const games = [
-  { id: 'briscola', name: 'Briscola', meta: '2–4 giocatori', className: 'coral' },
-  { id: 'machiavelli', name: 'Machiavelli', meta: '2–6 giocatori', className: 'lime' },
-  { id: 'uno', name: 'UNO', meta: '2–10 giocatori', className: 'violet' },
+  { id: 'briscola', name: 'Briscola', meta: '2-4 giocatori', className: 'coral' },
+  { id: 'machiavelli', name: 'Machiavelli', meta: '2-6 giocatori', className: 'lime' },
+  { id: 'uno', name: 'UNO', meta: '2-10 giocatori', className: 'violet' },
   { id: 'burraco', name: 'Burraco', meta: '2 giocatori', className: 'lime' },
   { id: 'dadi', name: 'Yahtzee', meta: '1 giocatore', className: 'coral' },
 ] as const
@@ -92,7 +92,7 @@ function GameArt({ game }: { game: Game }) {
   if (game.id === 'machiavelli' || game.id === 'burraco') return (
     <div className={`game-symbol ${game.id}`} aria-hidden="true">
       {(game.id === 'burraco' ? ['spade_2', 'heart_queen', 'joker_black'] : ['club_1', 'diamond_3', 'spade_10']).map((id) => (
-        <svg key={id} className="card real" viewBox="0 0 169.075 244.64"><use href={`/cards/french/svg-cards.svg#${id}`} /></svg>
+        <svg key={id} className="card real" viewBox="0 0 169.075 244.64"><use href={`${import.meta.env.BASE_URL}cards/french/svg-cards.svg#${id}`} /></svg>
       ))}
     </div>
   )
@@ -254,13 +254,13 @@ function StatsModal({ stats, names, onClose }: { stats: Stats; names: [string, s
       <button className="room-close" onClick={onClose} aria-label="Chiudi">×</button>
       <p className="status"><i /> Statistiche attive</p>
       <h2 id="stats-title">{names[0]} vs {names[1]}</h2>
-      <div className="stats-total"><b>{wins[0]}–{wins[1]}</b><span>vittorie totali · {total} partite avviate</span></div>
+      <div className="stats-total"><b>{wins[0]}-{wins[1]}</b><span>vittorie totali · {total} partite avviate</span></div>
       <div className="stats-head"><span>Gioco</span><span>Partite</span><span>Vittorie</span><span>Miglior punt.</span><span>Peggior punt.</span></div>
       <div className="stats-list">{games.map((game) => {
         const item = normalizeStat(stats.games[game.id] ?? emptyGameStat())
-        const pair = (p: [number | null, number | null]) => p[0] === null && p[1] === null ? '—' : `${p[0] ?? '—'}–${p[1] ?? '—'}`
-        const hands = item.hands[0] + item.hands[1] > 0 ? <small>mani {item.hands[0]}–{item.hands[1]}</small> : null
-        return <div key={game.id}><b>{game.name}</b><span>{item.completed}/{item.started}</span><span>{item.wins[0]}–{item.wins[1]}{item.draws ? ` · ${item.draws} pari` : ''}{hands}</span><span>{pair(item.best)}</span><span>{pair(item.worst)}</span></div>
+        const pair = (p: [number | null, number | null]) => p[0] === null && p[1] === null ? '-' : `${p[0] ?? '-'}-${p[1] ?? '-'}`
+        const hands = item.hands[0] + item.hands[1] > 0 ? <small>mani {item.hands[0]}-{item.hands[1]}</small> : null
+        return <div key={game.id}><b>{game.name}</b><span>{item.completed}/{item.started}</span><span>{item.wins[0]}-{item.wins[1]}{item.draws ? ` · ${item.draws} pari` : ''}{hands}</span><span>{pair(item.best)}</span><span>{pair(item.worst)}</span></div>
       })}</div>
       <div className="stats-tournaments"><span>Tornei giocati <b>{stats.tournaments}</b></span><span>Vinti da {names[0]} <b>{stats.tournamentWins}</b></span></div>
     </section>
@@ -275,7 +275,7 @@ function TournamentPanel({ tournament, onPlay, onStop }: { tournament: Tournamen
     <button className="casino-line tournament-exit" onClick={onStop}>Termina torneo</button>
     <p className="tournament-kicker">Al meglio di {tournament.bestOf}</p>
     <h1>{champion < 0 ? `Round ${tournament.round}` : 'Torneo concluso'}</h1>
-    <div className="tournament-score"><div><span>Tomas</span><b>{tournament.wins[0]}</b></div><i>—</i><div><b>{tournament.wins[1]}</b><span>Giulia</span></div></div>
+    <div className="tournament-score"><div><span>Tomas</span><b>{tournament.wins[0]}</b></div><i>-</i><div><b>{tournament.wins[1]}</b><span>Giulia</span></div></div>
     {champion < 0 ? <><p>{tournament.mode === 'random' ? 'Gioco estratto' : 'Gioco scelto'}</p><h2>{game.name}</h2><button className="casino-main" onClick={onPlay}>Gioca il round</button></> : <><h2>Vince {champion === 0 ? 'Tomas' : 'Giulia'}!</h2><button className="casino-main" onClick={onStop}>Torna alla sala</button></>}
   </section></div>
 }
