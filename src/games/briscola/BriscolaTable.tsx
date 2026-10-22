@@ -57,7 +57,7 @@ function Pile({ n, deck, mine = false }: { n: number; deck: DeckStyle; mine?: bo
 
 type OnlineGame = { userId: string; hostId: string; state: GameState; onState: (state: GameState) => void }
 
-export default function BriscolaTable({ onBack, deck, onDeckChange, online }: { onBack: () => void; deck: DeckStyle; onDeckChange: (deck: DeckStyle) => void; online?: OnlineGame }) {
+export default function BriscolaTable({ onBack, onResult, deck, online }: { onBack: () => void; onResult?: (winner: number | null) => void; deck: DeckStyle; online?: OnlineGame }) {
   const wide = useWide()
   const [localGame, setLocalGame] = useState<GameState>(deal)
   const game = online?.state ?? localGame
@@ -71,8 +71,13 @@ export default function BriscolaTable({ onBack, deck, onDeckChange, online }: { 
   const root = useRef<HTMLDivElement>(null)
   const drawn = useRef<number[] | null>(null)           // chi ha appena pescato, per l'animazione
   const timers = useRef<number[]>([])
+  const reported = useRef(false)
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  useEffect(() => {
+    if (game.phase !== 'over') { reported.current = false; return }
+    if (!reported.current) { reported.current = true; onResult?.(winner(game) === -1 ? null : winner(game)) }
+  }, [game, onResult])
 
   const saveGame = (state: GameState) => {
     if (online) online.onState(state)
@@ -179,9 +184,6 @@ export default function BriscolaTable({ onBack, deck, onDeckChange, online }: { 
           <div className={`bk-av${me === 1 ? ' bk-lei' : ''}`}>{game.names[me][0]}</div>
           <div className="bk-who"><b>{game.names[me]}</b><span>{over ? 'Partita finita' : game.turn === me ? 'Tocca a te' : `Tocca a ${game.names[op]}`}</span></div>
           <span className="bk-sp" />
-          <select className="bk-pill bk-deck" aria-label="Stile del mazzo" value={deck} onChange={(event) => onDeckChange(event.target.value as DeckStyle)}>
-            <option value="napoletane">Napoletane</option><option value="trevigiane">Trevigiane</option>
-          </select>
           <span className="bk-pill">Mazzo {n}</span>
           <button className={`bk-pill bk-btnp bk-exit${askExit ? ' warn' : ''}`} onClick={leave}>{askExit ? 'Esci dalla partita?' : '‹ Esci'}</button>
         </div>

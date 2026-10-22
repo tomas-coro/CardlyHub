@@ -110,7 +110,7 @@ function MeldView({ m, side, rules }: { m: Meld; side: 'mine' | 'her'; rules: Ru
 type Over = { meld?: HTMLElement | null; zone?: HTMLElement | null; dis?: HTMLElement | null; hand?: HTMLElement | null }
 type Aim = { el?: Element | null; bad?: boolean; msg?: string; ins?: { x: number; y: number; h: number } | null }
 
-export default function BurracoTable({ onBack }: { onBack: () => void }) {
+export default function BurracoTable({ onBack, onResult }: { onBack: () => void; onResult?: (winner: number | null) => void }) {
   const wide = useWide()
   const [game, setGame] = useState<GameState>(() => newMatch(DEFAULT_RULES).game)
   const [started, setStarted] = useState(false)
@@ -130,8 +130,13 @@ export default function BurracoTable({ onBack }: { onBack: () => void }) {
   const handEl = useRef<HTMLDivElement>(null)
   const toastN = useRef(0)
   const timers = useRef<number[]>([])
+  const reported = useRef(false)
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  useEffect(() => {
+    if (!game.matchOver) { reported.current = false; return }
+    if (!reported.current) { reported.current = true; onResult?.(game.winner) }
+  }, [game, onResult])
 
   const me = viewer
   const op = 1 - me

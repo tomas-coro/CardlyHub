@@ -76,7 +76,7 @@ function Pile({ count, ready, label, onClick }: { count: number; ready: boolean;
 type Drop = { kind: 'group'; id: number } | { kind: 'new' } | { kind: 'hand'; before: number | null } | { kind: 'bad' } | null
 const dropKey = (d: Drop) => (d ? JSON.stringify(d) : '')
 
-export default function MachiavelliTable({ onBack }: { onBack: () => void }) {
+export default function MachiavelliTable({ onBack, onResult }: { onBack: () => void; onResult?: (winner: number | null) => void }) {
   const wide = useWide()
   const [names, setNames] = useState<[string, string]>(loadNames)
   const [jokers, setJokers] = useState(true)
@@ -101,6 +101,12 @@ export default function MachiavelliTable({ onBack }: { onBack: () => void }) {
   const toastTimer = useRef<number>(0)
   const flashTimer = useRef<number>(0)
   const noClick = useRef(false)
+  const reported = useRef(false)
+
+  useEffect(() => {
+    if (game?.phase !== 'over') { reported.current = false; return }
+    if (!reported.current) { reported.current = true; onResult?.(game.winner) }
+  }, [game, onResult])
 
   const hand = useMemo(() => (game ? sortHand(game.hands[game.turn], sort, order) : []), [game, sort, order])
   // sempre l'ultima versione, per i listener della finestra (che non si ricreano a ogni render)

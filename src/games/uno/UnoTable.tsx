@@ -71,7 +71,7 @@ const sortHand = (h: Card[]) => {
   return h.slice().sort((x, y) => ord[x.c] - ord[y.c] || val(x) - val(y))
 }
 
-export default function UnoTable({ onBack }: { onBack: () => void }) {
+export default function UnoTable({ onBack, onResult }: { onBack: () => void; onResult?: (winner: number | null) => void }) {
   const wide = useWide()
   const [game, setGame] = useState<GameState>(() => newGame({ names: NAMES, rules: DEFAULT_RULES, first: 0 }, shuffle(buildDeck())))
   const [started, setStarted] = useState(false)             // false finché non si è premuto "Inizia la partita"
@@ -95,8 +95,13 @@ export default function UnoTable({ onBack }: { onBack: () => void }) {
   const suppressClick = useRef(false)
   const toastN = useRef(0)
   const timers = useRef<number[]>([])
+  const reported = useRef(false)
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  useEffect(() => {
+    if (!game.matchOver) { reported.current = false; return }
+    if (!reported.current) { reported.current = true; onResult?.(game.roundWinner) }
+  }, [game, onResult])
 
   const me = viewer
   const op = 1 - me
